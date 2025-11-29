@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { GraduationCap } from 'lucide-react';
+
+import { GraduationCap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // --- CUSTOM UI COMPONENTS (Định nghĩa trực tiếp để giải quyết lỗi import) ---

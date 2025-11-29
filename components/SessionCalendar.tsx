@@ -382,38 +382,78 @@ const renderStudentView = () => (
       <TabsTrigger value="group-sessions">Session nhóm</TabsTrigger>
     </TabsList>
 
-    {/* 1. Lịch của tôi */}
-    <TabsContent value="my-schedule" className="space-y-6 mt-6">
-      <h3 className="text-lg font-semibold">Lịch tư vấn của tôi</h3>
+    {/* ====================== 1. LỊCH CỦA TÔI ====================== */}
+    <TabsContent value="my-schedule" className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Lịch tư vấn của tôi</h3>
+          <p className="text-sm text-gray-500">Các buổi 1-1 và nhóm đã được xác nhận</p>
+        </div>
+      </div>
+
       {studentBookings.length === 0 ? (
-        <p className="text-center text-gray-500 py-12">Chưa có lịch nào</p>
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            Chưa có lịch tư vấn nào. Hãy đặt lịch 1-1 hoặc đăng ký session nhóm!
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {studentBookings.map((booking) => (
             <Card key={booking.id}>
-              <CardContent className="pt-6 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="w-1 h-16 bg-[#0B5FA5] rounded" />
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge>{booking.type === '1-1' ? '1-1' : 'Nhóm'}</Badge>
-                      <span className="font-medium">{booking.title || booking.subject}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">Tutor: {booking.tutor}</p>
-                    <div className="flex gap-4 text-sm text-gray-500 mt-1">
-                      <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{booking.date}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{booking.time}</span>
-                      {isOnline(booking) ? <span className="text-green-600">Online</span> : <span>{booking.location}</span>}
+              <CardContent className="pt-6">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 flex items-start gap-4">
+                    <div className="w-1 h-20 bg-[#0B5FA5] rounded" />
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={booking.type === '1-1' ? 'default' : 'secondary'}>
+                          {booking.type === '1-1' ? '1-1' : 'Nhóm'}
+                        </Badge>
+                        <h4 className="font-medium">
+                          {booking.title || booking.subject}
+                        </h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">Tutor: {booking.tutor}</p>
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {booking.date}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {booking.time}
+                        </span>
+                        {isOnline(booking) ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <Video className="w-4 h-4" />
+                            Trực tuyến
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            {booking.location}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleEditBooking(booking)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBooking(booking.id)}>
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditBooking(booking)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteBooking(booking.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -422,17 +462,88 @@ const renderStudentView = () => (
       )}
     </TabsContent>
 
-    {/* 2. Lịch rảnh Tutor → Có nút "Yêu cầu 1-1" mỗi dòng */}
-    <TabsContent value="tutor-availability" className="space-y-6 mt-6">
+    {/* ====================== 2. LỊCH RẢNH TUTOR ====================== */}
+    <TabsContent value="tutor-availability" className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Lịch rảnh của Tutor</h3>
-          <p className="text-sm text-gray-500">Chọn khung giờ rảnh và gửi yêu cầu tư vấn 1-1</p>
+          <p className="text-sm text-gray-500">Chọn khung giờ rảnh để đặt tư vấn 1-1</p>
         </div>
+        <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-[#0B5FA5] hover:bg-[#094A7F]">
+              <Plus className="w-4 h-4 mr-2" />
+              Đặt lịch 1-1
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Đặt lịch tư vấn 1-1</DialogTitle>
+              <DialogDescription>Chọn tutor và khung giờ rảnh</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleRequest1on1} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Chọn Tutor</Label>
+                  <Select onValueChange={(v) => setSelectedTutor(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn tutor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tutors.map((t) => (
+                        <SelectItem key={t.id} value={t.id.toString()}>
+                          {t.name} - {t.subject}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Môn học</Label>
+                  <Input name="subject" required placeholder="VD: Toán cao cấp" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Ngày mong muốn</Label>
+                  <Input name="date" type="date" required />
+                </div>
+                <div>
+                  <Label>Thời gian</Label>
+                  <Input name="time" required placeholder="14:00 - 15:30" />
+                </div>
+              </div>
+              <div>
+                <Label>Hình thức</Label>
+                <Select name="type">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn hình thức" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="online">Trực tuyến</SelectItem>
+                    <SelectItem value="offline">Trực tiếp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Ghi chú (nếu có)</Label>
+                <Textarea name="note" placeholder="Nội dung cần hỗ trợ..." />
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-[#0B5FA5]">
+                  Gửi yêu cầu
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsRequestDialogOpen(false)}>
+                  Hủy
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
@@ -440,12 +551,12 @@ const renderStudentView = () => (
                 <TableHead>Ngày</TableHead>
                 <TableHead>Thời gian</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
+                <TableHead>Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tutorAvailability
-                .filter(slot => !slot.booked)
+                .filter((slot) => !slot.booked)
                 .map((slot) => (
                   <TableRow key={slot.id}>
                     <TableCell className="font-medium">{slot.tutorName}</TableCell>
@@ -456,47 +567,51 @@ const renderStudentView = () => (
                         Còn trống
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Button
                         size="sm"
-                        className="bg-[#0B5FA5] hover:bg-[#094A7F]"
                         onClick={() => {
                           setSelectedTutor(slot.tutorId);
-                          // Điền sẵn ngày + giờ vào form (tùy chọn)
-                          // Nếu muốn tự động điền, thêm state tạm
                           setIsRequestDialogOpen(true);
                         }}
                       >
-                        Yêu cầu 1-1
+                        Đặt ngay
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
-
-          {tutorAvailability.filter(s => !s.booked).length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              Hiện chưa có lịch rảnh nào
+          {tutorAvailability.filter((s) => !s.booked).length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              Hiện tại chưa có lịch rảnh nào. Vui lòng quay lại sau!
             </div>
           )}
         </CardContent>
       </Card>
     </TabsContent>
 
-    {/* 3. Yêu cầu 1-1 (lịch sử) */}
-    <TabsContent value="one-on-one-requests" className="space-y-6 mt-6">
-      <h3 className="text-lg font-semibold">Yêu cầu tư vấn 1-1 đã gửi</h3>
-      {oneOnOneRequests.length === 0 ? (
-        <p className="text-center text-gray-500 py-12">Chưa gửi yêu cầu nào</p>
-      ) : (
-        <div className="space-y-4">
-          {oneOnOneRequests.map((req) => (
+    {/* ====================== 3. YÊU CẦU 1-1 ====================== */}
+    <TabsContent value="one-on-one-requests" className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Lịch sử yêu cầu 1-1</h3>
+        <p className="text-sm text-gray-500">Theo dõi trạng thái các yêu cầu đã gửi</p>
+      </div>
+
+      <div className="space-y-4">
+        {oneOnOneRequests.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-gray-500">
+              Chưa có yêu cầu nào được gửi.
+            </CardContent>
+          </Card>
+        ) : (
+          oneOnOneRequests.map((req) => (
             <Card key={req.id}>
               <CardContent className="pt-6">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
                       <Badge
                         variant={
                           req.status === 'approved' ? 'default' :
@@ -509,64 +624,94 @@ const renderStudentView = () => (
                       </Badge>
                       <span className="font-medium">{req.subject}</span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      Thời gian mong muốn: {req.preferredDate} • {req.preferredTime}
-                    </p>
-                    {req.note && <p className="text-sm italic text-gray-500 mt-2">"{req.note}"</p>}
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>Yêu cầu với: <strong>{tutors.find(t => t.id === selectedTutor)?.name || 'Tutor'}</strong></p>
+                      <p>Thời gian mong muốn: {req.preferredDate} - {req.preferredTime}</p>
+                      {req.note && <p className="italic mt-2">Ghi chú: {req.note}</p>}
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </TabsContent>
 
-    {/* 4. Session nhóm */}
-    <TabsContent value="group-sessions" className="space-y-6 mt-6">
-      <h3 className="text-lg font-semibold">Session nhóm</h3>
-      {groupSessions.length === 0 ? (
-        <p className="text-center text-gray-500 py-12">Chưa có session nhóm nào</p>
-      ) : (
-        <div className="grid gap-4">
-          {groupSessions.map((session) => {
+    {/* ====================== 4. SESSION NHÓM ====================== */}
+    <TabsContent value="group-sessions" className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Session nhóm</h3>
+        <p className="text-sm text-gray-500">Đăng ký tham gia các buổi học nhóm</p>
+      </div>
+
+      <div className="grid gap-4">
+        {groupSessions.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-gray-500">
+              Chưa có session nhóm nào được tạo.
+            </CardContent>
+          </Card>
+        ) : (
+          groupSessions.map((session) => {
             const isEnrolled = studentBookings.some(b => b.type === 'group' && b.title === session.title);
             const isFull = session.enrolled >= session.maxParticipants;
 
             return (
               <Card key={session.id}>
-                <CardContent className="pt-6 flex justify-between items-start">
-                  <div className="flex items-start gap-4">
-                    <div className="w-1 h-20 bg-[#0B5FA5] rounded" />
-                    <div>
-                      <h4 className="font-semibold text-lg">{session.title}</h4>
-                      <p className="text-sm text-gray-600">GV: {session.tutor}</p>
-                      <div className="flex gap-4 text-sm text-gray-500 mt-2">
-                        <span><Calendar className="w-4 h-4 inline mr-1" />{session.date}</span>
-                        <span><Clock className="w-4 h-4 inline mr-1" />{session.time}</span>
-                        {session.type === 'online' ? 'Online' : session.location}
-                      </div>
-                      <div className="flex items-center gap-3 mt-3">
-                        <Badge variant="outline">{session.program}</Badge>
-                        <span className="text-sm">
-                          <Users className="w-4 h-4 inline mr-1" />
-                          {session.enrolled}/{session.maxParticipants}
-                        </span>
+                <CardContent className="pt-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 flex items-start gap-4">
+                      <div className="w-1 h-24 bg-[#0B5FA5] rounded" />
+                      <div>
+                        <h4 className="font-semibold text-lg mb-1">{session.title}</h4>
+                        <p className="text-sm text-gray-600 mb-3">Giảng viên: {session.tutor}</p>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {session.date}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {session.time}
+                          </span>
+                          {session.type === 'online' ? (
+                            <span className="flex items-center gap-1 text-green-600">
+                              <Video className="w-4 h-4" />
+                              Trực tuyến
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {session.location}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-3">
+                          <Badge variant="outline" className="bg-blue-50">
+                            {session.program}
+                          </Badge>
+                          <span className="text-sm flex items-center gap-1">
+                            <Users className="w-4 h-4" />
+                            {session.enrolled}/{session.maxParticipants} đã đăng ký
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      onClick={() => handleEnrollGroupSession(session.id)}
+                      disabled={isEnrolled || isFull}
+                      className={isEnrolled ? 'bg-gray-400' : ''}
+                    >
+                      {isEnrolled ? 'Đã đăng ký' : isFull ? 'Đã đầy' : 'Đăng ký ngay'}
+                    </Button>
                   </div>
-                  <Button
-                    disabled={isEnrolled || isFull}
-                    onClick={() => handleEnrollGroupSession(session.id)}
-                  >
-                    {isEnrolled ? 'Đã đăng ký' : isFull ? 'Đã đầy' : 'Đăng ký'}
-                  </Button>
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
     </TabsContent>
   </Tabs>
 );
