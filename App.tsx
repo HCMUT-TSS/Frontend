@@ -15,6 +15,8 @@ import Library from './components/Library';
 import Community from './components/Community';
 import { Button } from './components/ui/button';
 
+//Fake Mock :)))
+import SessionCalendarFake from './components/FakeMockSessionCalender';
 type Role = 'student' | 'tutor' | 'admin';
 
 export default function App() {
@@ -137,7 +139,7 @@ export default function App() {
       </aside>
       <main className="flex-1 pl-64 min-h-screen bg-gray-50">
         <div className="p-6">
-          {currentPage === 'calendar' && <SessionCalendar userRole={userRole} />}
+          {currentPage === 'calendar' && <SessionCalendarFake userRole={userRole} />}
           {currentPage === 'profile' && <ProfilePage userRole={userRole} userEmail={userEmail} />}
           {currentPage === 'matching' && userRole === 'admin' && <TutorMatching />}
           {currentPage === 'record' && userRole === 'tutor' && <SessionRecord />}
