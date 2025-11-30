@@ -462,134 +462,150 @@ const renderStudentView = () => (
       )}
     </TabsContent>
 
-    {/* ====================== 2. LỊCH RẢNH TUTOR ====================== */}
-    <TabsContent value="tutor-availability" className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold">Lịch rảnh của Tutor</h3>
-          <p className="text-sm text-gray-500">Chọn khung giờ rảnh để đặt tư vấn 1-1</p>
-        </div>
-        <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#0B5FA5] hover:bg-[#094A7F]">
-              <Plus className="w-4 h-4 mr-2" />
-              Đặt lịch 1-1
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Đặt lịch tư vấn 1-1</DialogTitle>
-              <DialogDescription>Chọn tutor và khung giờ rảnh</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleRequest1on1} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Chọn Tutor</Label>
-                  <Select onValueChange={(v) => setSelectedTutor(parseInt(v))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn tutor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tutors.map((t) => (
-                        <SelectItem key={t.id} value={t.id.toString()}>
-                          {t.name} - {t.subject}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Môn học</Label>
-                  <Input name="subject" required placeholder="VD: Toán cao cấp" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Ngày mong muốn</Label>
-                  <Input name="date" type="date" required />
-                </div>
-                <div>
-                  <Label>Thời gian</Label>
-                  <Input name="time" required placeholder="14:00 - 15:30" />
-                </div>
-              </div>
-              <div>
-                <Label>Hình thức</Label>
-                <Select name="type">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn hình thức" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="online">Trực tuyến</SelectItem>
-                    <SelectItem value="offline">Trực tiếp</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Ghi chú (nếu có)</Label>
-                <Textarea name="note" placeholder="Nội dung cần hỗ trợ..." />
-              </div>
-              <div className="flex gap-3">
-                <Button type="submit" className="flex-1 bg-[#0B5FA5]">
-                  Gửi yêu cầu
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsRequestDialogOpen(false)}>
-                  Hủy
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tutor</TableHead>
-                <TableHead>Ngày</TableHead>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead>Hành động</TableHead>
+{/* ====================== 2. LỊCH RẢNH TUTOR ====================== */}
+<TabsContent value="tutor-availability" className="space-y-6">
+  <div>
+    <h3 className="text-lg font-semibold">Lịch rảnh của Tutor</h3>
+    <p className="text-sm text-gray-500">Chọn khung giờ rảnh để đặt tư vấn 1-1</p>
+  </div>
+
+  <Card>
+    <CardContent className="pt-6">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Tutor</TableHead>
+            <TableHead>Ngày</TableHead>
+            <TableHead>Thời gian</TableHead>
+            <TableHead>Trạng thái</TableHead>
+            <TableHead className="text-right">Hành động</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tutorAvailability
+            .filter((slot) => !slot.booked)
+            .map((slot) => (
+              <TableRow key={slot.id}>
+                <TableCell className="font-medium">{slot.tutorName}</TableCell>
+                <TableCell>{slot.date}</TableCell>
+                <TableCell>{slot.time}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="bg-green-50 text-green-700">
+                    Còn trống
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    className="bg-[#0B5FA5] hover:bg-[#094A7F]"
+                    onClick={() => {
+                      setSelectedTutor(slot.tutorId);
+                      // Tự động điền ngày + giờ vào form (nếu bạn muốn)
+                      // Có thể thêm state riêng nếu cần
+                      setIsRequestDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Đặt ngay
+                  </Button>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tutorAvailability
-                .filter((slot) => !slot.booked)
-                .map((slot) => (
-                  <TableRow key={slot.id}>
-                    <TableCell className="font-medium">{slot.tutorName}</TableCell>
-                    <TableCell>{slot.date}</TableCell>
-                    <TableCell>{slot.time}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-50 text-green-700">
-                        Còn trống
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedTutor(slot.tutorId);
-                          setIsRequestDialogOpen(true);
-                        }}
-                      >
-                        Đặt ngay
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+            ))}
+        </TableBody>
+      </Table>
+
+      {tutorAvailability.filter((s) => !s.booked).length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          Hiện tại chưa có lịch rảnh nào. Vui lòng quay lại sau!
+        </div>
+      )}
+    </CardContent>
+  </Card>
+
+  {/* Dialog đặt lịch 1-1 – giữ nguyên như cũ */}
+  <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
+    <DialogTrigger asChild>
+      {/* Trigger ẩn – chỉ dùng để mở dialog từ button trong bảng */}
+      <button className="hidden" />
+    </DialogTrigger>
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Đặt lịch tư vấn 1-1</DialogTitle>
+        <DialogDescription>
+          {selectedTutor && tutors.find(t => t.id === selectedTutor)
+            ? `Với tutor: ${tutors.find(t => t.id === selectedTutor)?.name}`
+            : 'Chọn tutor và khung giờ'}
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleRequest1on1} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Tutor</Label>
+            <Select 
+              value={selectedTutor?.toString() || ''} 
+              onValueChange={(v) => setSelectedTutor(parseInt(v))}
+              disabled // Không cho sửa tutor khi đã chọn từ bảng
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tutors.map((t) => (
+                  <SelectItem key={t.id} value={t.id.toString()}>
+                    {t.name} - {t.subject}
+                  </SelectItem>
                 ))}
-            </TableBody>
-          </Table>
-          {tutorAvailability.filter((s) => !s.booked).length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              Hiện tại chưa có lịch rảnh nào. Vui lòng quay lại sau!
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </TabsContent>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Môn học</Label>
+            <Input name="subject" required placeholder="VD: Toán cao cấp" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Ngày mong muốn</Label>
+            <Input name="date" type="date" required />
+          </div>
+          <div>
+            <Label>Thời gian mong muốn</Label>
+            <Input name="time" required placeholder="14:00 - 15:30" />
+          </div>
+        </div>
+
+        <div>
+          <Label>Hình thức</Label>
+          <Select name="type" defaultValue="online">
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="online">Trực tuyến</SelectItem>
+              <SelectItem value="offline">Trực tiếp</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Ghi chú (nếu có)</Label>
+          <Textarea name="note" placeholder="Nội dung cần hỗ trợ..." />
+        </div>
+
+        <div className="flex gap-3">
+          <Button type="submit" className="flex-1 bg-[#0B5FA5]">
+            Gửi yêu cầu
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setIsRequestDialogOpen(false)}>
+            Hủy
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  </Dialog>
+</TabsContent>
 
     {/* ====================== 3. YÊU CẦU 1-1 ====================== */}
     <TabsContent value="one-on-one-requests" className="space-y-6">
