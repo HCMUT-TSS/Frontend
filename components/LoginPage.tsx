@@ -1,290 +1,258 @@
 import { useState } from 'react';
-
-import { GraduationCap, Loader2 } from 'lucide-react';
+import { GraduationCap, Loader2, AlertCircle, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { mockLoginWithEmail } from '../src/lib/mockAuth'; // Đảm bảo đường dẫn đúng
 
-// --- CUSTOM UI COMPONENTS (Định nghĩa trực tiếp để giải quyết lỗi import) ---
+// ====================== CUSTOM UI COMPONENTS ======================
+const Button = ({
+  children,
+  className = '',
+  type = 'button' as const,
+  onClick,
+  variant = 'default' as const,
+  disabled = false,
+}: React.ComponentProps<'button'> & { variant?: 'default' | 'secondary' }) => {
+  const base = 'h-11 px-6 inline-flex items-center justify-center rounded-xl text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  const styles = variant === 'secondary'
+    ? 'bg-gray-200 text-gray-800 hover:bg-gray-300 shadow-md'
+    : 'bg-[#0B5FA5] text-white hover:bg-[#094A7F] shadow-lg hover:shadow-xl';
 
-// 1. Button Component
-const Button = ({ children, className = '', type = 'button', onClick, variant = 'default' }: React.ComponentProps<'button'> & { variant?: 'default' | 'secondary' }) => {
-  const baseClasses = "h-11 px-4 py-2 inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
-  
-  let style = '';
-  if (variant === 'default') {
-    // Phong cách button chính (HCMUT Blue)
-    style = "bg-[#0B5FA5] text-white hover:bg-[#094A7F] shadow-lg hover:shadow-xl"; 
-  } else if (variant === 'secondary') {
-    // Phong cách button phụ (Gray for quick tests)
-    style = "bg-gray-200 text-gray-800 hover:bg-gray-300 shadow-md"; 
-  }
-
-  return (
-    <button
-      type={type}
-      className={`${baseClasses} ${style} ${className}`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
+  return (
+    <button type={type} disabled={disabled} className={`${base} ${styles} ${className}`} onClick={onClick}>
+      {children}
+    </button>
+  );
 };
 
-// 2. Input Component
-const Input = ({ id, type = 'text', placeholder, value, onChange, required, className = '' }: React.ComponentProps<'input'>) => {
-  const baseClasses = "flex h-11 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B5FA5] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow";
-  return (
-    <input
-      id={id}
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      required={required}
-      className={`${baseClasses} ${className}`}
-    />
-  );
-};
+const Input = ({
+  id,
+  type = 'text',
+  placeholder,
+  value,
+  onChange,
+  required,
+  className = '',
+}: React.ComponentProps<'input'>) => (
+  <input
+    id={id}
+    type={type}
+    placeholder={placeholder}
+    value={value}
+    onChange={onChange}
+    required={required}
+    className={`flex h-11 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B5FA5] focus-visible:ring-offset-2 ${className}`}
+  />
+);
 
-// 3. Label Component
-const Label = ({ htmlFor, children }: React.ComponentProps<'label'>) => {
-  return (
-    <label 
-      htmlFor={htmlFor} 
-      className="text-sm font-medium leading-none text-gray-700"
-    >
-      {children}
-    </label>
-  );
-};
+const Label = ({ htmlFor, children }: React.ComponentProps<'label'>) => (
+  <label htmlFor={htmlFor} className="text-sm font-medium text-gray-700">
+    {children}
+  </label>
+);
 
-// --- END CUSTOM UI COMPONENTS ---
-
+// ====================== TYPE ======================
+type Role = 'student' | 'tutor' | 'admin';
 
 interface LoginPageProps {
-  onLogin: (role: 'student' | 'tutor' | 'coordinator' | 'admin') => void;
+  onLogin: (role: Role, email: string) => void; // ← ĐÃ SỬA: nhận cả email
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  // Sử dụng một state duy nhất cho form đăng nhập
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Giả định rằng nút này là đường dẫn chính cho người dùng (Student/Tutor)
-    // Sau khi xóa các nút test, đây sẽ là logic đăng nhập SSO thực tế
-    onLogin('student'); 
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
-  const handleAdminLogin = () => {
-    onLogin('admin');
-  };
-  
-  // --- HÀM ĐĂNG NHẬP NHANH ---
-  const handleQuickLogin = (role: 'student' | 'tutor' | 'coordinator') => {
-    onLogin(role);
-    toast.info(`Đăng nhập nhanh với vai trò: ${role.toUpperCase()}`);
-  };
+    if (!email.trim()) {
+      setError('Vui lòng nhập email HCMUT');
+      return;
+    }
 
-  return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-white">
-        <div className="w-full max-w-md space-y-8">
-          {/* Logo & Header */}
-          <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0B5FA5] rounded-2xl shadow-lg">
-              <GraduationCap className="w-10 h-10 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Chào mừng trở lại</h1>
-              <p className="text-gray-500">
-                Hệ thống Hỗ trợ Tutor - ĐH Bách Khoa ĐHQG TP.HCM
-              </p>
-            </div>
-          </div>
+    if (!email.toLowerCase().endsWith('@hcmut.edu.vn')) {
+      setError('Email phải thuộc hệ thống HCMUT (@hcmut.edu.vn)');
+      return;
+    }
 
-          {/* Unified Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Nhập email của bạn (Ví dụ: MSSV@hcmut.edu.vn)"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  required
-                  className="h-11"
-                />
-              </div>
+    setIsLoading(true);
 
-{/*               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="password">Mật khẩu</Label>
-                  <button
-                    type="button"
-                    className="text-sm text-[#0B5FA5] hover:underline"
-                  >
-                    Quên mật khẩu?
-                  </button>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Nhập mật khẩu"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  required
-                  className="h-11"
-                />
-              </div> */}
+    try {
+      const result = await mockLoginWithEmail(email.trim().toLowerCase()) as {
+            success: boolean;
+            user?: any;
+            error?: string;
+        };
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="w-4 h-4 rounded-md border-gray-300 text-[#0B5FA5] focus:ring-[#0B5FA5]"
-                />
-                <label htmlFor="remember" className="text-sm text-gray-600">
-                  Ghi nhớ đăng nhập
-                </label>
-              </div>
-            </div>
+      if (result.success && result.user) {
+        const name = result.user.name.split(' ').pop() || 'bạn';
+        toast.success(`Chào mừng ${name} trở lại!`, {
+          description: `Đã đăng nhập với vai trò ${result.user.role === 'tutor' ? 'Gia sư' : result.user.role === 'admin' ? 'Quản trị viên' : 'Sinh viên'}`,
+        });
 
-            <Button
-              type="submit"
-              className="w-full h-11"
-            >
-              Đăng nhập bằng HCMUT_SSO
-            </Button>
+        // ← TRUYỀN ĐÚNG ROLE + EMAIL
+        onLogin(result.user.role as Role, result.user.email);
+      } else {
+        throw new Error(result.error || 'Không tìm thấy tài khoản');
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Lỗi hệ thống';
 
-            {/* --- TEST BUTTONS START --- */}
-            <div className="pt-2">
-              <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 text-center">
-                Truy cập nhanh (Chỉ dùng để Test)
-              </div>
-              <div className="flex space-x-4">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => handleQuickLogin('student')}
-                >
-                  Login as Student
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => handleQuickLogin('tutor')}
-                >
-                  Login as Tutor
-                </Button>
-              </div>
-            </div>
-            {/* --- TEST BUTTONS END --- */}
+      if (msg.includes('không tìm thấy') || msg.includes('Không tìm thấy')) {
+        setError('Không tìm thấy tài khoản này trong hệ thống HCMUT');
+      } else {
+        setError(msg);
+      }
 
-          </form>
-          {/* END Unified Login Form */}
+      toast.error('Đăng nhập thất bại');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-          {/* Admin Access Link */}
-          <div className="text-center mt-4">
-            <button
-              onClick={handleAdminLogin}
-              className="text-sm text-gray-500 hover:text-[#0B5FA5] transition-colors"
-            >
-              Truy cập quản trị viên →
-            </button>
-          </div>
+  const quickLogin = (role: Role, emailExample: string) => {
+    toast.info(`Đăng nhập nhanh – ${role === 'student' ? 'Sinh viên' : role === 'tutor' ? 'Gia sư' : 'Quản trị viên'}`);
+    onLogin(role, emailExample);
+  };
 
-          {/* Security Notice */}
-          <div className="text-center text-xs text-gray-400">
-            <p>🔒 Đăng nhập an toàn qua HCMUT Single Sign-On</p>
-            <p className="mt-1">Thông tin của bạn được bảo mật theo tiêu chuẩn ISO 27001</p>
-          </div>
-        </div>
-      </div>
+  return (
+    <div className="min-h-screen flex">
+      {/* LEFT – FORM */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#f7f7f7]">
+        <div className="w-full max-w-md space-y-10">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-xl mb-6 overflow-hidden">
+              <img
+                src="https://upload.wikimedia.org/wikipedia/commons/d/de/HCMUT_official_logo.png"
+                alt="Logo ĐH Bách Khoa TP.HCM"
+                className="w-14 h-14 object-contain"
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Chào mừng trở lại</h1>
+            <p className="mt-2 text-gray-600">Hệ thống Hỗ trợ Tutor – ĐH Bách Khoa TP.HCM</p>
+          </div>
 
-      {/* Right Side - Campus Image */}
-      <div className="hidden lg:block lg:w-1/2 relative bg-gradient-to-br from-[#0B5FA5] to-[#094A7F]">
-        <div className="absolute inset-0">
-          <img
-            src="https://hcmut.edu.vn/img/content/F2-AIKz4FvLVIvlqbyGJRySx.jpg"
-            alt="HCMUT Campus"
-            onError={(e) => {
-                e.currentTarget.onerror = null; 
-                e.currentTarget.src = "https://placehold.co/1080x1920/0B5FA5/ffffff?text=HCMUT+Campus";
-            }}
-            className="w-full h-full object-cover opacity-40"
-          />
-        </div>
-        
-        {/* Overlay Content */}
-        <div className="relative h-full flex flex-col justify-between p-12 text-white">
-          <div>
-            <h2 className="text-4xl font-extrabold mb-4">
-              Trường Đại học Bách Khoa
-              <br />
-              ĐHQG TP.HCM
-            </h2>
-            <p className="text-lg text-white/90">
-              Nền tảng hỗ trợ học tập thông minh
-            </p>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email HCMUT</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="mssv@hcmut.edu.vn"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2">1,248</div>
-                <div className="text-sm text-white/80">Sinh viên</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2">45</div>
-                <div className="text-sm text-white/80">Gia sư</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2">4.8</div>
-                <div className="text-sm text-white/80">Đánh giá</div>
-              </div>
-            </div>
+            <Button type="submit" disabled={isLoading} className="w-full text-base font-semibold">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Đang xác thực với HCMUT SSO...
+                </>
+              ) : (
+                'Đăng nhập bằng HCMUT_SSO'
+              )}
+            </Button>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-bold text-xl">
-                  ✓
-                </div>
-                <div>
-                  <div className="text-sm">Kết nối với gia sư chất lượng cao</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-bold text-xl">
-                  ✓
-                </div>
-                <div>
-                  <div className="text-sm">Lịch học linh hoạt, phù hợp với bạn</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-bold text-xl">
-                  ✓
-                </div>
-                <div>
-                  <div className="text-sm">Thư viện tài liệu phong phú</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+            {/* HIỂN THỊ LỖI */}
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium">Đăng nhập thất bại</p>
+                  <p className="mt-1">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* TEST NHANH (chỉ hiện khi dev) */}
+            {import.meta.env.DEV && (
+              <div className="pt-8 border-t border-gray-200">
+                <p className="text-xs font-bold text-gray-500 text-center mb-4 uppercase tracking-wider">
+                  Test nhanh (dev only)
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <Button variant="secondary" onClick={() => quickLogin('student', 'phat.nguyenchlorcale@hcmut.edu.vn')}>
+                    Student
+                  </Button>
+                  <Button variant="secondary" onClick={() => quickLogin('tutor', 'tam.nguyen272@hcmut.edu.vn')}>
+                    Tutor
+                  </Button>
+                  <Button variant="secondary" onClick={() => quickLogin('admin', 'ctsv@hcmut.edu.vn')}>
+                    Admin
+                  </Button>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-500 space-y-1">
+                  <p>• Student: <code className="bg-gray-100 px-1 rounded">phat.nguyenchlorcale@hcmut.edu.vn</code></p>
+                  <p>• Tutor: <code className="bg-gray-100 px-1 rounded">tam.nguyen272@hcmut.edu.vn</code></p>
+                  <p>• Admin: <code className="bg-gray-100 px-1 rounded">ctsv@hcmut.edu.vn</code></p>
+                </div>
+              </div>
+            )}
+          </form>
+
+          <p className="text-center text-xs text-gray-400 mt-10">
+            Đăng nhập an toàn qua HCMUT Single Sign-On • ISO 27001
+          </p>
+        </div>
+      </div>
+
+      {/* RIGHT – HÌNH NỀN */}
+      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#0B5FA5] to-[#094A7F]">
+        <img
+          src="https://hcmut.edu.vn/img/content/F2-AIKz4FvLVIvlqbyGJRySx.jpg"
+          alt="Campus"
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
+          onError={(e) => {
+            e.currentTarget.src = 'https://placehold.co/1200x1600/0B5FA5/ffffff?text=HCMUT+Campus&font=roboto';
+          }}
+        />
+        <div className="relative h-full flex flex-col justify-between p-12 text-white">
+          <div>
+            <h2 className="text-5xl font-extrabold leading-tight">
+              Trường Đại học Bách Khoa
+              <br />
+              ĐHQG TP.HCM
+            </h2>
+            <p className="mt-4 text-lg opacity-90">Nền tảng hỗ trợ học tập thông minh</p>
+          </div>
+
+          <div className="space-y-10">
+            <div className="grid grid-cols-3 gap-8">
+              {[
+                { num: '1,248', label: 'Sinh viên' },
+                { num: '45', label: 'Gia sư' },
+                { num: '4.8', label: 'Đánh giá' },
+              ].map((s) => (
+                <div key={s.label} className="text-center">
+                  <div className="text-4xl font-bold">{s.num}</div>
+                  <div className="text-sm opacity-80">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              {[
+                'Kết nối với gia sư chất lượng cao',
+                'Lịch học linh hoạt 24/7',
+                'Thư viện tài liệu phong phú',
+              ].map((text) => (
+                <div key={text} className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Check className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-sm text-white">{text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
