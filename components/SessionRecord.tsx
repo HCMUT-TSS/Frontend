@@ -120,7 +120,7 @@ export default function SessionRecord() {
                   step={5}
                   className="flex-1"
                 />
-                <div className="w-16 text-center p-2 border rounded">
+                <div className="w-16 text-center p-2 border rounded text-black">
                   {formData.progress[0]}%
                 </div>
               </div>
