@@ -1,50 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Calendar, User, BookOpen, MessageSquare, FileText,
-  BarChart3, Users, LogOut
+  BarChart3, Users, LogOut, Loader2
 } from 'lucide-react';
 
 import LoginPage from './components/LoginPage';
 import SessionCalendar from './components/SessionCalendar';
-import ProfilePage from './components/ProfilePage';        // ← Đảm bảo tên đúng
+import ProfilePage from './components/ProfilePage';
 import TutorMatching from './components/TutorMatching';
 import SessionRecord from './components/SessionRecord';
 import Feedback from './components/Feedback';
 import Reports from './components/Reports';
 import Library from './components/Library';
 import Community from './components/Community';
-
 import { Button } from './components/ui/button';
 
 type Role = 'student' | 'tutor' | 'admin';
 
 export default function App() {
-  // ← TẤT CẢ useState PHẢI NẰM TRONG ĐÂY!
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<Role>('student');
-  const [userEmail, setUserEmail] = useState<string>('');        // ← Bắt đầu rỗng
+  const [userEmail, setUserEmail] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<string>('calendar');
 
-  // Nhận cả email từ LoginPage
+  useEffect(() => {
+    fetch('/api/user/me', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => {
+        setIsLoggedIn(true);
+        setUserRole(data.user.role);
+        setUserEmail(data.user.email);
+        setCurrentPage('calendar');
+      })
+      .catch(() => setIsLoggedIn(false));
+  }, []);
+
   const handleLogin = (role: Role, email: string) => {
     setUserRole(role);
-    setUserEmail(email);           // ← Lưu email thật
+    setUserEmail(email);
     setIsLoggedIn(true);
     setCurrentPage('calendar');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     setIsLoggedIn(false);
-    setUserRole('student');
-    setUserEmail('');
-    setCurrentPage('calendar');
   };
 
+  if (isLoggedIn === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-[#0B5FA5] mx-auto mb-4" />
+          <p className="text-gray-600">Đang xác thực...</p>
+        </div>
+      </div>
+    );
+  }
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  // Menu...
   const baseNav = [
     { id: 'calendar', label: 'Lịch tư vấn', icon: Calendar },
     { id: 'profile', label: 'Hồ sơ', icon: User },
@@ -70,7 +86,6 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <aside className="w-64 bg-[#0B5FA5] text-white flex flex-col fixed inset-y-0 z-10">
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -120,19 +135,10 @@ export default function App() {
           </Button>
         </div>
       </aside>
-
-      {/* Main Content */}
       <main className="flex-1 pl-64 min-h-screen bg-gray-50">
         <div className="p-6">
           {currentPage === 'calendar' && <SessionCalendar userRole={userRole} />}
-          
-          {currentPage === 'profile' && (
-            <ProfilePage 
-              userRole={userRole} 
-              userEmail={userEmail}     // ← ĐÃ TRUYỀN ĐÚNG!
-            />
-          )}
-          
+          {currentPage === 'profile' && <ProfilePage userRole={userRole} userEmail={userEmail} />}
           {currentPage === 'matching' && userRole === 'admin' && <TutorMatching />}
           {currentPage === 'record' && userRole === 'tutor' && <SessionRecord />}
           {currentPage === 'feedback' && <Feedback userRole={userRole} />}

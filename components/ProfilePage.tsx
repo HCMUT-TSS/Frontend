@@ -10,7 +10,14 @@ import { Mail, Phone, Award, Calendar, Building2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-export default function ProfilePage() {
+type Role = 'student' | 'tutor' | 'admin';
+
+interface ProfilePageProps {
+  userRole: Role;
+  userEmail: string;
+}
+
+export default function ProfilePage({ userRole, userEmail }: ProfilePageProps) {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
