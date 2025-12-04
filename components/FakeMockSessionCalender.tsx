@@ -1,3 +1,20 @@
+// src/components/SessionCalendar.tsx
+import { useState, useEffect, useCallback } from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import axios from 'axios';
+import { toast } from 'sonner';
+
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+// import { Textarea } from './ui/text';
+import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Calendar, Clock, Video, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import TutorDashboard from './tutor/TutorDashboard';
+
 declare global {
   interface ImportMetaEnv {
     readonly VITE_API_URL?: string;
@@ -6,50 +23,32 @@ declare global {
     readonly env: ImportMetaEnv;
   }
 }
-// src/components/SessionCalendar.tsx
-import { useState, useEffect, useCallback } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import axios from 'axios';
-import { toast } from 'sonner';
 
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Calendar, Clock, Video, Plus, ChevronLeft, ChevronRight, UserCheck, XCircle } from 'lucide-react';
-import TutorDashboard from './tutor/TutorDashboard';
-
-// Axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   withCredentials: true,
 });
 
-
-// Types từ backend
+// ĐÚNG THEO DỮ LIỆU BẠN NHẬN ĐƯỢC TỪ POSTMAN
 interface Availability {
-  id: string;
-  tutorId: string;
-  tutor: { fullName: string };
-  startTime: string;
-  endTime: string;
-  isBooked: boolean;
+  tutorId: number;
+  tutorName: string;
+  faculty?: string;
+  msv?: string;
+  date: string;           // "2025-12-04"
+  startTime: string;      // "14:00"
+  endTime: string;        // "16:00"
 }
 
 interface Booking {
-  id: string;
-  tutor: { fullName: string };
-  availability?: { startTime: string; endTime: string };
-  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
-  notes?: string;
-  meetingLink?: string;
+  id: number;
+  tutorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'pending' | 'confirmed' | 'rejected';
+  meetLink?: string;
+  note?: string;
 }
 
 export default function SessionCalendar({ userRole = 'student' }: { userRole: 'student' | 'tutor' }) {
@@ -61,92 +60,109 @@ export default function SessionCalendar({ userRole = 'student' }: { userRole: 's
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Dialog
+  // Dialog đặt lịch
   const [requestOpen, setRequestOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Availability | null>(null);
-  const [notes, setNotes] = useState('');
+  const [note, setNote] = useState('');
 
-  // Fetch data
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [availRes, bookingRes] = await Promise.all([
-        api.get('/api/availabilities'),
-        api.get('/api/my/bookings'),
-      ]);
-      setAvailabilities(availRes.data || []);
-      setMyBookings(bookingRes.data || []);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Lỗi tải dữ liệu');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  setIsLoading(true);
+  try {
+    const [availRes, bookingRes] = await Promise.all([
+      api.get('/api/student/availabilities?days=14'),
+      api.get('/api/student/my/bookings'),
+    ]);
+
+    console.log('DỮ LIỆU THÔ:', availRes.data);
+
+    // SỬA DÒNG NÀY → LẤY ĐÚNG slots TỪ OBJECT
+    setAvailabilities(availRes.data?.slots || []);
+
+    setMyBookings(Array.isArray(bookingRes.data) ? bookingRes.data : bookingRes.data?.bookings || []);
+  } catch (err: any) {
+    console.error('LỖI:', err);
+    toast.error('Lỗi tải dữ liệu');
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     if (userRole === 'student') fetchData();
   }, [userRole, fetchData]);
 
-  // Đặt lịch
+  // GỬI YÊU CẦU ĐẶT LỊCH – ĐÚNG THEO DEMO BẠN GỬI
   const handleBook = async () => {
     if (!selectedSlot) return;
+
     try {
-      await api.post('/api/bookings/request', {
-        availabilityId: selectedSlot.id,
-        notes,
+      await api.post('/api/student/bookings/request', {
+        tutorId: selectedSlot.tutorId,
+        preferredDate: selectedSlot.date,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        subject: "Tư vấn học tập", // có thể để trống hoặc thêm input sau
+        description: note || "Sinh viên cần hỗ trợ",
       });
-      toast.success('Đã gửi yêu cầu đặt lịch thành công!');
+
+      toast.success('Đã gửi yêu cầu thành công! Tutor sẽ phản hồi sớm');
       setRequestOpen(false);
-      setNotes('');
+      setNote('');
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Không thể đặt lịch');
+      toast.error(err.response?.data?.message || 'Gửi thất bại');
     }
   };
 
-  // Helper
-  const formatDate = (date: string) => format(new Date(date), 'dd/MM/yyyy');
-  const formatTime = (date: string) => format(new Date(date), 'HH:mm');
-  const formatDateTime = (date: string) => format(new Date(date), 'dd/MM/yyyy HH:mm');
+  const monthDays = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  });
 
-  const eventsOnDate = (date: Date) => {
-    return myBookings.filter(b => 
-      b.availability && isSameDay(new Date(b.availability.startTime), date)
-    );
+  // Lọc slot theo ngày được chọn
+  const slotsOnDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return availabilities.filter(s => s.date === dateStr);
   };
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  // Lọc booking cá nhân theo ngày
+  const bookingsOnDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return myBookings.filter(b => b.date === dateStr);
+  };
 
-if (userRole === 'tutor') {
+  if (userRole === 'tutor') {
     return <TutorDashboard />;
   }
 
-  // Chỉ student mới cần loading
   if (isLoading) {
-    return <div className="p-8 text-center text-xl">Đang tải lịch của bạn...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-8 border-[#0B5FA5] border-t-transparent mx-auto mb-6"></div>
+          <p className="text-2xl font-bold text-[#0B5FA5]">Đang tải lịch tư vấn...</p>
+        </div>
+      </div>
+    );
   }
+
   return (
-    <>
-    
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-4xl font-bold text-center text-[#0B5FA5] mb-10">
+        CỔNG ĐẶT LỊCH TƯ VẤN 1-1
+      </h1>
+
       <Tabs defaultValue="calendar" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-100 p-1 rounded-lg">
-          <TabsTrigger value="calendar" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-md font-medium">
-            Lịch của tôi
-          </TabsTrigger>
-          <TabsTrigger value="tutor-slots" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-md font-medium">
-            Lịch rảnh Tutor
-          </TabsTrigger>
-          <TabsTrigger value="requests" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-md font-medium">
-            Yêu cầu của tôi
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-100 p-1 rounded-xl">
+          <TabsTrigger value="calendar" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-lg">Lịch của tôi</TabsTrigger>
+          <TabsTrigger value="tutor-slots" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-lg">Chọn slot rảnh</TabsTrigger>
+          <TabsTrigger value="my-requests" className="data-[state=active]:bg-[#0B5FA5] data-[state=active]:text-white rounded-lg">Yêu cầu của tôi</TabsTrigger>
         </TabsList>
 
-        {/* === TAB 1: LỊCH CÁ NHÂN (Calendar View) === */}
-        <TabsContent value="calendar" className="space-y-6">
+        {/* TAB 1: LỊCH CÁ NHÂN */}
+        <TabsContent value="calendar" className="space-y-8">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold">{format(currentMonth, 'MMMM yyyy', { locale: vi })}</h3>
+            <h3 className="text-2xl font-bold">{format(currentMonth, 'MMMM yyyy', { locale: vi })}</h3>
             <div className="flex gap-2">
               <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft /></Button>
               <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight /></Button>
@@ -155,35 +171,33 @@ if (userRole === 'tutor') {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-700 mb-2">
-                {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => <div key={d} className="py-2">{d}</div>)}
+              <div className="grid grid-cols-7 gap-2 text-center font-bold text-gray-700 mb-4">
+                {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
+                  <div key={d} className="py-3 bg-[#0B5FA5] text-white rounded-lg">{d}</div>
+                ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-3">
                 {monthDays.map(day => {
-                  const events = eventsOnDate(day);
+                  const slots = slotsOnDate(day);
+                  const bookings = bookingsOnDate(day);
+                  const total = slots.length + bookings.length;
                   const isToday = isSameDay(day, today);
-                  const hasEvent = events.length > 0;
-                  const isCurrent = isSameMonth(day, currentMonth);
 
                   return (
                     <div
                       key={day.toString()}
                       onClick={() => setSelectedDate(day)}
-                      className={`relative min-h-20 rounded-lg border cursor-pointer text-xs transition-all
-                        ${!isCurrent ? 'bg-gray-50 text-gray-400' : 'bg-white'}
-                        ${isToday ? 'border-blue-600 border-2 font-bold shadow-md' : 'border-gray-200'}
-                        ${hasEvent ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'}
+                      className={`min-h-28 p-3 rounded-2xl border-4 cursor-pointer transition-all
+                        ${isToday ? 'border-[#0B5FA5] bg-blue-50 shadow-xl' : 'border-gray-300 bg-white'}
+                        ${total > 0 ? 'ring-4 ring-green-400' : ''}
+                        hover:shadow-lg
                       `}
                     >
-                      <div className={`p-1 text-right font-medium ${isToday ? 'text-blue-600' : ''}`}>
-                        {format(day, 'd')}
-                      </div>
-                      {hasEvent && (
-                        <div className="absolute top-1 left-1">
-                          <Badge className="text-[10px] px-1.5 py-0 bg-blue-600 text-white">
-                            {events.length} buổi
-                          </Badge>
-                        </div>
+                      <div className="font-bold text-lg">{format(day, 'd')}</div>
+                      {total > 0 && (
+                        <Badge className="mt-2 text-xs px-2 py-1 bg-green-600 text-white">
+                          {total} buổi
+                        </Badge>
                       )}
                     </div>
                   );
@@ -191,50 +205,32 @@ if (userRole === 'tutor') {
               </div>
             </div>
 
-            {/* Chi tiết ngày được chọn */}
             <div className="lg:col-span-1">
-              <Card className="h-full sticky top-6 border-blue-200">
-                <CardHeader className="bg-blue-50 border-b">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                    {format(selectedDate, 'EEEE', { locale: vi })}
+              <Card className="h-full bg-gradient-to-br from-[#0B5FA5] to-blue-700 text-white">
+                <CardHeader>
+                  <CardTitle className="text-2xl">
+                    {format(selectedDate, 'EEEE, d MMMM yyyy', { locale: vi })}
                   </CardTitle>
-                  <p className="text-2xl font-bold text-blue-700">{format(selectedDate, 'd')}</p>
-                  <p className="text-sm text-gray-600">{format(selectedDate, 'MMMM yyyy', { locale: vi })}</p>
                 </CardHeader>
-                <CardContent className="pt-4">
-                  {eventsOnDate(selectedDate).length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">Không có buổi học nào</p>
+                <CardContent>
+                  {[...slotsOnDate(selectedDate), ...bookingsOnDate(selectedDate)].length === 0 ? (
+                    <p className="text-xl opacity-90">Không có lịch</p>
                   ) : (
-                    <div className="space-y-4">
-                      {eventsOnDate(selectedDate).map(booking => (
-                        <div key={booking.id} className="p-4 bg-gradient-to-r from-blue-50 to-white border border-blue-200 rounded-lg">
-                          <p className="font-semibold">Tư vấn 1-1</p>
-                          <p className="text-sm text-gray-700">Với: <strong>{booking.tutor.fullName}</strong></p>
-                          {booking.availability && (
-                            <>
-                              <p className="text-sm mt-1">
-                                <Clock className="w-4 h-4 inline mr-1" />
-                                {formatTime(booking.availability.startTime)} - {formatTime(booking.availability.endTime)}
-                              </p>
-                            </>
-                          )}
-                          <div className="mt-3">
-                            <Badge
-                              variant={booking.status === 'CONFIRMED' ? 'default' : booking.status === 'PENDING' ? 'secondary' : 'destructive'}
-                            >
-                              {booking.status === 'PENDING' && 'Đang chờ'}
-                              {booking.status === 'CONFIRMED' && 'Đã xác nhận'}
-                              {booking.status === 'REJECTED' && 'Bị từ chối'}
-                            </Badge>
-                          </div>
-                          {booking.meetingLink && (
-                            <Button size="sm" className="mt-3 w-full" asChild>
-                              <a href={booking.meetingLink} target="_blank" rel="noopener">
-                                <Video className="w-4 h-4 mr-1" /> Tham gia Zoom
-                              </a>
-                            </Button>
-                          )}
+                    <div className="space-y-3">
+                      {slotsOnDate(selectedDate).map(slot => (
+                        <div key={`${slot.tutorId}-${slot.date}-${slot.startTime}`} className="bg-white/20 p-3 rounded-lg">
+                          <p className="font-bold">{slot.tutorName}</p>
+                          <p>{slot.startTime} - {slot.endTime}</p>
+                          <Badge className="mt-2 bg-green-500">Còn trống</Badge>
+                        </div>
+                      ))}
+                      {bookingsOnDate(selectedDate).map(b => (
+                        <div key={b.id} className="bg-white/20 p-3 rounded-lg">
+                          <p className="font-bold">{b.tutorName}</p>
+                          <p>{b.startTime} - {b.endTime}</p>
+                          <Badge className={b.status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'}>
+                            {b.status === 'pending' ? 'Chờ duyệt' : 'Đã xác nhận'}
+                          </Badge>
                         </div>
                       ))}
                     </div>
@@ -245,76 +241,81 @@ if (userRole === 'tutor') {
           </div>
         </TabsContent>
 
-        {/* === TAB 2: LỊCH RẢNH TUTOR === */}
-        <TabsContent value="tutor-slots" className="space-y-6">
-          <h3 className="text-xl font-bold">Chọn khung giờ tư vấn</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tutor</TableHead>
-                <TableHead>Ngày</TableHead>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {availabilities
-                .filter(s => !s.isBooked)
-                .map(slot => (
-                  <TableRow key={slot.id}>
-                    <TableCell className="font-medium">{slot.tutor.fullName}</TableCell>
-                    <TableCell>{formatDate(slot.startTime)}</TableCell>
-                    <TableCell>{formatTime(slot.startTime)} - {formatTime(slot.endTime)}</TableCell>
-                    <TableCell><Badge variant="outline" className="bg-green-100 text-green-700">Còn trống</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        className="bg-[#0B5FA5]"
-                        onClick={() => {
-                          setSelectedSlot(slot);
-                          setRequestOpen(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-1" /> Đặt ngay
-                      </Button>
-                    </TableCell>
+        {/* TAB 2: CHỌN SLOT RẢNH */}
+        <TabsContent value="tutor-slots">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h3 className="text-2xl font-bold text-[#0B5FA5] mb-6">Chọn khung giờ tư vấn từ tutor</h3>
+            {availabilities.length === 0 ? (
+              <p className="text-center text-gray-500 py-12 text-xl">Hiện chưa có tutor nào đăng ký lịch rảnh</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tutor</TableHead>
+                    <TableHead>Ngày</TableHead>
+                    <TableHead>Thời gian</TableHead>
+                    <TableHead>Khoa</TableHead>
+                    <TableHead className="text-right">Hành động</TableHead>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-          {availabilities.filter(s => !s.isBooked).length === 0 && (
-            <div className="text-center py-12 text-gray-500">Hiện chưa có khung giờ trống nào</div>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {availabilities.map(slot => (
+                    <TableRow key={`${slot.tutorId}-${slot.date}-${slot.startTime}`}>
+                      <TableCell className="font-bold text-[#0B5FA5]">{slot.tutorName}</TableCell>
+                      <TableCell>{format(parseISO(slot.date), 'dd/MM/yyyy (EEEE)', { locale: vi })}</TableCell>
+                      <TableCell className="font-medium">{slot.startTime} - {slot.endTime}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{slot.faculty || 'Khoa học máy tính'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          className="bg-[#0B5FA5] hover:bg-blue-700"
+                          onClick={() => {
+                            setSelectedSlot(slot);
+                            setRequestOpen(true);
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" /> Đặt lịch
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </TabsContent>
 
-        {/* === TAB 3: YÊU CẦU CỦA TÔI === */}
-        <TabsContent value="requests" className="space-y-6">
-          <h3 className="text-xl font-bold">Yêu cầu đã gửi</h3>
+        {/* TAB 3: YÊU CẦU CỦA TÔI */}
+        <TabsContent value="my-requests">
+          <h3 className="text-2xl font-bold text-[#0B5FA5] mb-6">Yêu cầu đặt lịch của bạn</h3>
           {myBookings.length === 0 ? (
-            <Card><CardContent className="py-12 text-center text-gray-500">Bạn chưa gửi yêu cầu nào</CardContent></Card>
+            <Card className="py-20 text-center text-gray-500 text-xl">
+              <CardContent>Bạn chưa gửi yêu cầu nào</CardContent>
+            </Card>
           ) : (
             <div className="space-y-4">
-              {myBookings.map(booking => (
-                <Card key={booking.id}>
+              {myBookings.map(b => (
+                <Card key={b.id} className="border-l-8 border-l-[#0B5FA5]">
                   <CardContent className="pt-6">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <h4 className="font-semibold">Tư vấn 1-1 với {booking.tutor.fullName}</h4>
-                        {booking.availability && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            {formatDateTime(booking.availability.startTime)} → {formatTime(booking.availability.endTime)}
-                          </p>
-                        )}
-                        {booking.notes && <p className="text-sm italic mt-2 text-gray-700">Ghi chú: {booking.notes}</p>}
+                        <p className="text-xl font-bold">{b.tutorName}</p>
+                        <p className="text-lg mt-2">
+                          <Calendar className="inline w-5 h-5 mr-2" />
+                          {format(parseISO(b.date), 'dd/MM/yyyy (EEEE)', { locale: vi })} • {b.startTime} - {b.endTime}
+                        </p>
+                        {b.note && <p className="mt-3 italic text-gray-600">Ghi chú: {b.note}</p>}
                       </div>
-                      <Badge
-                        variant={booking.status === 'CONFIRMED' ? 'default' : booking.status === 'PENDING' ? 'secondary' : 'destructive'}
-                      >
-                        {booking.status === 'PENDING' && 'Đang chờ duyệt'}
-                        {booking.status === 'CONFIRMED' && 'Đã xác nhận'}
-                        {booking.status === 'REJECTED' && 'Bị từ chối'}
-                      </Badge>
+                      <div className="text-right">
+                        <Badge className={b.status === 'confirmed' ? 'bg-green-600' : 'bg-yellow-600'}>{b.status === 'pending' ? 'Đang chờ' : 'Đã xác nhận'}</Badge>
+                        {b.meetLink && (
+                          <Button size="sm" className="mt-3" asChild>
+                            <a href={b.meetLink} target="_blank" rel="noopener">
+                              <Video className="w-4 h-4 mr-1" /> Tham gia
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -324,49 +325,44 @@ if (userRole === 'tutor') {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog đặt lịch */}
+      {/* DIALOG ĐẶT LỊCH */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Xác nhận đặt lịch tư vấn 1-1</DialogTitle>
+            <DialogTitle className="text-2xl">Xác nhận đặt lịch tư vấn</DialogTitle>
           </DialogHeader>
           {selectedSlot && (
-            <div className="space-y-5">
-              <div className="bg-blue-50 p-5 rounded-lg text-center">
-                <p className="font-bold text-lg">{selectedSlot.tutor.fullName}</p>
-                <p className="text-sm mt-2">{formatDate(selectedSlot.startTime)}</p>
-                <p className="text-lg font-semibold">
-                  {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
-                </p>
+            <div className="space-y-6 py-4">
+              <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-[#0B5FA5]/10 rounded-xl">
+                <p className="text-2xl font-bold text-[#0B5FA5]">{selectedSlot.tutorName}</p>
+                <p className="text-lg mt-3">{format(parseISO(selectedSlot.date), 'EEEE, dd/MM/yyyy', { locale: vi })}</p>
+                <p className="text-3xl font-bold mt-2 text-[#0B5FA5]">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
               </div>
 
               <div>
-                <Label>Ghi chú cho tutor (không bắt buộc)</Label>
-                <Textarea
-                  placeholder="Ví dụ: Em cần hỗ trợ phần đạo hàm, tích phân..."
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                <label className="text-sm font-medium">Ghi chú cho tutor (không bắt buộc)</label>
+                <textarea
+                  className="w-full mt-2 p-4 border rounded-lg"
                   rows={4}
+                  placeholder="Em cần hỗ trợ phần..."
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
                 />
               </div>
 
-              <div className="flex gap-3 justify-end">
+              <div className="flex gap-4 justify-end">
                 <Button variant="outline" onClick={() => setRequestOpen(false)}>Hủy</Button>
-                <Button onClick={handleBook} className="bg-[#0B5FA5]">
-                  Gửi yêu cầu đặt lịch
+                <Button onClick={handleBook} className="bg-[#0B5FA5] px-8">
+                  Gửi yêu cầu ngay
                 </Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-      
-    </>
-    
+    </div>
   );
-  
 }
-
 // 2. RENDER TUTOR VIEW – ĐÃ KẾT NỐI THẬT VỚI BACKEND
 
 

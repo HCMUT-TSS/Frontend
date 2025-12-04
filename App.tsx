@@ -137,7 +137,7 @@ export default function App() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 pl-64 min-h-screen bg-gray-50">
+      <main className="flex-1 pl-64 min-h-screen bg-gray-50" style={{ paddingLeft: '256px' }}>
         <div className="p-6">
           {currentPage === 'calendar' && <SessionCalendarFake userRole={userRole} />}
           {currentPage === 'profile' && <ProfilePage userRole={userRole} userEmail={userEmail} />}
