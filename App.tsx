@@ -15,26 +15,39 @@ import Library from './components/Library';
 import Community from './components/Community';
 import { Button } from './components/ui/button';
 
-//Fake Mock :)))
-import SessionCalendarFake from './components/FakeMockSessionCalender';
+// Fake Mock (giữ lại để test nhanh)
+// import SessionCalendarFake from './components/FakeMockSessionCalender';
+
+// FIX: Định nghĩa type đúng
 type Role = 'student' | 'tutor' | 'admin';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [userRole, setUserRole] = useState<Role>('student');
+  const [userRole, setUserRole] = useState<Role>('student'); // mặc định student
   const [userEmail, setUserEmail] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<string>('calendar');
 
   useEffect(() => {
     fetch('/api/user/me', { credentials: 'include' })
-      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(res => {
+        if (!res.ok) throw new Error('Unauthorized');
+        return res.json();
+      })
       .then(data => {
         setIsLoggedIn(true);
-        setUserRole(data.user.role);
+        // FIX: Ép kiểu an toàn từ API
+        const role = data.user.role;
+        if (role === 'student' || role === 'tutor' || role === 'admin') {
+          setUserRole(role);
+        } else {
+          setUserRole('student'); // fallback
+        }
         setUserEmail(data.user.email);
         setCurrentPage('calendar');
       })
-      .catch(() => setIsLoggedIn(false));
+      .catch(() => {
+        setIsLoggedIn(false);
+      });
   }, []);
 
   const handleLogin = (role: Role, email: string) => {
@@ -47,6 +60,8 @@ export default function App() {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     setIsLoggedIn(false);
+    setUserRole('student');
+    setUserEmail('');
   };
 
   if (isLoggedIn === null) {
@@ -59,10 +74,12 @@ export default function App() {
       </div>
     );
   }
+
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  // Nav items cơ bản
   const baseNav = [
     { id: 'calendar', label: 'Lịch tư vấn', icon: Calendar },
     { id: 'profile', label: 'Hồ sơ', icon: User },
@@ -88,6 +105,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
       <aside className="w-64 bg-[#0B5FA5] text-white flex flex-col fixed inset-y-0 z-10">
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -137,9 +155,12 @@ export default function App() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 pl-64 min-h-screen bg-gray-50" style={{ paddingLeft: '256px' }}>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64 min-h-screen bg-gray-50" style={{ paddingLeft: '256px' }}>
         <div className="p-6">
-          {currentPage === 'calendar' && <SessionCalendarFake userRole={userRole} />}
+          {/* DÙNG COMPONENT THẬT – ĐÃ FIX HOÀN TOÀN */}
+          {currentPage === 'calendar' && <SessionCalendar userRole={userRole} />}
           {currentPage === 'profile' && <ProfilePage userRole={userRole} userEmail={userEmail} />}
           {currentPage === 'matching' && userRole === 'admin' && <TutorMatching />}
           {currentPage === 'record' && userRole === 'tutor' && <SessionRecord />}
