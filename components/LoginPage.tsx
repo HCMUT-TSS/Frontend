@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GraduationCap, Loader2, AlertCircle, Check } from 'lucide-react';
+import { GraduationCap, Loader2, AlertCircle, Check, Key } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ====================== CUSTOM UI COMPONENTS ======================
@@ -60,14 +60,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [password, setPassword] = useState('');
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    if (!email.trim()) {
-      setError('Vui lòng nhập email HCMUT');
+    if (!email.trim() || !password.trim()) {
+      setError('Vui lòng nhập đầy đủ email và mật khẩu ');
       setIsLoading(false);
       return;
     }
@@ -83,7 +83,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: password }),
       });
 
       const data = await response.json();
@@ -116,7 +116,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setEmail(emailExample);
     toast.info(`Test nhanh: ${emailExample}`);
     setTimeout(() => {
-      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
       // @ts-ignore
       handleSubmit(fakeEvent);
     }, 500);
@@ -152,7 +152,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 autoFocus
               />
             </div>
-
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <Key className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
             <Button type="submit" disabled={isLoading} className="w-full text-base font-semibold">
               {isLoading ? (
                 <>
