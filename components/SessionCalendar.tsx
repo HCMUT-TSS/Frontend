@@ -39,6 +39,12 @@ interface Availability {
   date: string;
   startTime: string;
   endTime: string;
+
+  // THÊM 4 DÒNG NÀY → KHÔNG CÒN LỖI NỮA!
+  title?: string;
+  location?: string;
+  meetingType?: 'online' | 'offline' | null;
+  meetLink?: string | null;
 }
 
 interface Booking {
@@ -177,7 +183,7 @@ export default function SessionCalendar({ userRole = 'student' }: { userRole: 's
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-4xl font-bold text-center text-[#0B5FA5] mb-10">
-        CỔNG ĐẶT LỊCH TƯ VẤN 1-1
+        CỔNG ĐẶT LỊCH TƯ VẤN
       </h1>
 
       <Tabs defaultValue="calendar" className="w-full">
@@ -339,58 +345,106 @@ export default function SessionCalendar({ userRole = 'student' }: { userRole: 's
           </div>
         </TabsContent>
 
-        {/* TAB 2: CHỌN SLOT RẢNH */}
-        <TabsContent value="tutor-slots">
-          <Card className="shadow-lg border-none">
-            <CardHeader>
-              <CardTitle>Đăng ký lịch tư vấn với Tutor</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {availabilities.length === 0 ? (
-                <p className="text-center py-12 text-gray-500 text-lg">Hiện chưa có tutor nào đăng ký lịch rảnh</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tutor</TableHead>
-                      <TableHead>Ngày</TableHead>
-                      <TableHead>Thời gian</TableHead>
-                      <TableHead>Hành động</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {availabilities.map(slot => (
-                      <TableRow key={`${slot.tutorId}-${slot.date}-${slot.startTime}`}>
-                        <TableCell className="font-bold text-[#0B5FA5]">{slot.tutorName}</TableCell>
-                        <TableCell>
-                          {slot.date ? (
-                            <div className="space-y-1">
-                              <p className="font-medium">{format(parseISO(slot.date), 'dd/MM/yyyy', { locale: vi })}</p>
-                              <p className="text-sm text-gray-500 font-bold">({format(parseISO(slot.date), 'EEEE', { locale: vi })})</p>
-                            </div>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell><Badge variant="outline" className="px-3 py-1">{slot.startTime} - {slot.endTime}</Badge></TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            className="bg-[#0B5FA5] hover:bg-[#094a85] text-white shadow-md"
-                            onClick={() => {
-                              setSelectedSlot(slot);
-                              setRequestOpen(true);
-                            }}
-                          >
-                            <Plus className="w-4 h-4 mr-1" /> Đặt lịch
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* TAB 2: CHỌN SLOT RẢNH – ĐƠN GIẢN NHƯ BẠN MUỐN, NHƯNG HIỂN THỊ ĐÚNG TIÊU ĐỀ + ĐỊA ĐIỂM */}
+<TabsContent value="tutor-slots">
+  <Card className="shadow-lg border-none">
+    <CardHeader>
+      <CardTitle className="text-[#0B5FA5] text-2xl">Đăng ký lịch tư vấn với Tutor</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {availabilities.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <Calendar className="w-16 h-16 mx-auto mb-3 opacity-20" />
+          <p className="text-lg">Hiện chưa có tutor nào đăng ký lịch rảnh</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tutor</TableHead>
+              <TableHead>Tiêu đề</TableHead>
+              <TableHead>Ngày</TableHead>
+              <TableHead>Thời gian</TableHead>
+              <TableHead>Hình thức</TableHead>
+              <TableHead>Hành động</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {availabilities.map((slot) => {
+              // GỘP ĐỊA ĐIỂM THÔNG MINH
+              const locationDisplay = 
+                slot.meetLink?.trim() || 
+                slot.location?.trim() || 
+                (slot.meetingType === 'online' ? 'Google Meet' : 
+                 slot.meetingType === 'offline' ? 'Tại cơ sở' : 'Chưa xác định');
+
+              const isOnline = slot.meetingType === 'online' || !!slot.meetLink;
+
+              return (
+                <TableRow key={`${slot.tutorId}-${slot.date}-${slot.startTime}`}>
+                  <TableCell className="font-bold text-[#0B5FA5] text-lg">
+                    {slot.tutorName}
+                  </TableCell>
+                  <TableCell className="font-medium max-w-52">
+                    <p className="truncate" title={slot.title}>
+                      {slot.title || 'Tư vấn 1:1'}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <p className="font-bold text-gray-800">
+                        {format(parseISO(slot.date), 'dd/MM/yyyy')}
+                      </p>
+                      <p className="text-sm text-[#0B5FA5] font-semibold capitalize">
+                        {format(parseISO(slot.date), 'EEEE', { locale: vi })}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="px-3 py-1 text-base font-mono">
+                      {slot.startTime} - {slot.endTime}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {isOnline ? (
+                        <>
+                          <Video className="w-5 h-5 text-blue-600" />
+                          <span className="font-medium text-blue-700">Online</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="w-5 h-5 text-red-600" />
+                          <span className="font-medium text-red-700">Offline</span>
+                        </>
+                      )}
+                    </div>
+                    {locationDisplay !== 'Google Meet' && locationDisplay !== 'Chưa xác định' && (
+                      <p className="text-xs text-gray-600 mt-1 truncate max-w-40" title={locationDisplay}>
+                        {locationDisplay}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      className="bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold"
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        setRequestOpen(true);
+                      }}
+                    >
+                      <Plus className="w-5 h-5 mr-2" /> Đặt lịch ngay
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
 
         {/* TAB 3: YÊU CẦU CỦA TÔI (ĐÃ BỔ SUNG) */}
         <TabsContent value="my-requests">
@@ -462,46 +516,91 @@ export default function SessionCalendar({ userRole = 'student' }: { userRole: 's
 
       {/* DIALOG ĐẶT LỊCH */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-        <DialogContent className="max-w-md mx-auto p-6 bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center text-[#0B5FA5]">Đặt lịch tư vấn</DialogTitle>
-          </DialogHeader>
+  <DialogContent className="max-w-md mx-auto p-6 bg-white rounded-2xl">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-bold text-center text-[#0B5FA5]">
+        Đặt lịch tư vấn
+      </DialogTitle>
+    </DialogHeader>
 
-          {selectedSlot && (
-            <div className="space-y-5 mt-2">
-              <div className="text-center bg-blue-50 p-4 rounded-xl border border-blue-100">
-                <p className="text-2xl font-bold text-[#0B5FA5]">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
-                <p className="font-medium text-gray-700 mt-1">
-                  {format(parseISO(selectedSlot.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">Tutor: <span className="font-bold">{selectedSlot.tutorName}</span></p>
-              </div>
+    {selectedSlot && (
+      <div className="space-y-6 mt-4">
+        {/* THÔNG TIN BUỔI */}
+        <div className="text-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-2xl border border-blue-200">
+          <p className="text-3xl font-bold text-[#0B5FA5]">
+            {selectedSlot.title || 'Tư vấn 1:1'}
+          </p>
+          <p className="text-xl font-semibold text-gray-800 mt-3">
+            {selectedSlot.tutorName}
+          </p>
+          <p className="text-lg text-gray-700 mt-4">
+            {format(parseISO(selectedSlot.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
+          </p>
+          <p className="text-2xl font-bold text-gray-800 mt-3">
+            {selectedSlot.startTime} - {selectedSlot.endTime}
+          </p>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium">Hình thức:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => setLocationType('online')} className={`p-2 border rounded text-sm ${locationType === 'online' ? 'border-[#0B5FA5] bg-blue-50 text-[#0B5FA5] font-bold' : 'text-gray-600'}`}>Online</button>
-                  <button onClick={() => setLocationType('cs1')} className={`p-2 border rounded text-sm ${locationType === 'cs1' ? 'border-green-600 bg-green-50 text-green-700 font-bold' : 'text-gray-600'}`}>CS1 (Q.10)</button>
-                  <button onClick={() => setLocationType('cs2')} className={`p-2 border rounded text-sm ${locationType === 'cs2' ? 'border-orange-600 bg-orange-50 text-orange-700 font-bold' : 'text-gray-600'}`}>CS2 (Thủ Đức)</button>
-                </div>
-                {locationType !== 'online' && (
-                  <Input placeholder="Nhập phòng (VD: 304 H6)" value={customLocation} onChange={e => setCustomLocation(e.target.value)} />
-                )}
-              </div>
+          {/* ĐỊA ĐIỂM */}
+          {(() => {
+            const loc = selectedSlot.meetLink?.trim() || 
+                        selectedSlot.location?.trim() || 
+                        (selectedSlot.meetingType === 'online' ? 'Google Meet' : 'Tại cơ sở');
+            const isOnline = selectedSlot.meetingType === 'online' || !!selectedSlot.meetLink;
 
-              <div>
-                <label className="text-sm font-medium mb-1 block">Ghi chú:</label>
-                <textarea rows={2} className="w-full p-2 border rounded resize-none focus:outline-none focus:border-[#0B5FA5]" placeholder="Nội dung cần hỗ trợ..." value={note} onChange={e => setNote(e.target.value)} />
+            return (
+              <div className="mt-6 flex items-center justify-center gap-3 text-lg font-bold">
+                {isOnline ? <Video className="w-7 h-7 text-blue-600" /> : <MapPin className="w-7 h-7 text-red-600" />}
+                <span className={isOnline ? 'text-blue-700' : 'text-red-700'}>
+                  {isOnline ? 'ONLINE' : 'OFFLINE'}
+                </span>
               </div>
+            );
+          })()}
 
-              <div className="flex gap-2 justify-end pt-2">
-                <Button variant="outline" onClick={() => setRequestOpen(false)}>Hủy</Button>
-                <Button onClick={handleBook} className="bg-[#0B5FA5] hover:bg-[#094a85]">Xác nhận</Button>
-              </div>
-            </div>
+          {selectedSlot.meetLink && (
+            <a
+              href={selectedSlot.meetLink}
+              target="_blank"
+              className="block mt-4 text-blue-600 underline font-medium"
+            >
+              Mở link Google Meet
+            </a>
           )}
-        </DialogContent>
-      </Dialog>
+          {selectedSlot.location && !selectedSlot.meetLink && (
+            <p className="mt-4 text-gray-700 font-medium">
+              {selectedSlot.location}
+            </p>
+          )}
+        </div>
+
+        {/* GHI CHÚ */}
+        <div>
+          <label className="block text-lg font-medium mb-2">Ghi chú cho tutor (không bắt buộc)</label>
+          <textarea
+            rows={3}
+            className="w-full p-4 border rounded-xl resize-none focus:outline-none focus:border-[#0B5FA5]"
+            placeholder="VD: Em muốn ôn lại phần Linked List..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4">
+          <Button variant="outline" size="lg" onClick={() => setRequestOpen(false)}>
+            Hủy
+          </Button>
+          <Button 
+            size="lg" 
+            onClick={handleBook}
+            className="bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold px-10"
+          >
+            Gửi yêu cầu đặt lịch
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
     </div>
   );
 }

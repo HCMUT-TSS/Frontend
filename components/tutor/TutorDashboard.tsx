@@ -43,9 +43,13 @@ const api = axios.create({
 // --- INTERFACES ---
 interface AvailabilitySlot {
   id: number;
+  tutorId: number;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  title?: string;
+  location?: string;
+  isActive?: boolean;
 }
 
 interface BookingRequest {
@@ -68,6 +72,10 @@ interface BookingRequest {
 }
 
 export default function TutorDashboard() {
+  const [locationType, setLocationType] = useState<'online' | 'cs1' | 'cs2'>('online');
+  const [meetLink, setMeetLink] = useState('');
+  const [customLocation, setCustomLocation] = useState('');
+  const [sessionTitle, setSessionTitle] = useState('');
   const [errorMsg, setErrorMsg] = useState("");
   const today = new Date();
 
@@ -87,6 +95,7 @@ export default function TutorDashboard() {
   const [loading, setLoading] = useState(true);
   
   // STATE FORM ADD
+  
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState('3');
   const [startTime, setStartTime] = useState('14:00');
@@ -134,44 +143,54 @@ export default function TutorDashboard() {
 
   // --- HÀM THÊM LỊCH (ĐÃ FIX) ---
   const handleAddAvailability = async () => {
-    setErrorMsg(""); // Reset lỗi cũ trước khi gửi
+  setErrorMsg("");
 
-    if (!startTime || !endTime) {
-      setErrorMsg('Vui lòng chọn giờ đầy đủ'); // Hiện lỗi ngay
-      return;
-    }
-    
-    const dayInt = parseInt(selectedDayOfWeek, 10);
+  if (!startTime || !endTime || startTime >= endTime) {
+    setErrorMsg('Giờ không hợp lệ');
+    return;
+  }
 
-    try {
-      await api.post('/api/tutor/schedule', {
-        dayOfWeek: dayInt,
-        startTime,
-        endTime,
-      });
-      
-      toast.success('Thêm lịch thành công!');
-      setIsAddOpen(false); // Chỉ đóng khi thành công
-      fetchData(); 
+  if (!sessionTitle.trim()) {
+    setErrorMsg('Vui lòng nhập tiêu đề buổi học');
+    return;
+  }
 
-    } catch (err: any) {
-      console.log("Error details:", err.response);
+  const dayInt = parseInt(selectedDayOfWeek, 10);
 
-      // --- LOGIC HIỂN THỊ LỖI ---
-      if (err.response && err.response.data && err.response.data.message) {
-        // 1. Hiện Toast (Thông báo góc màn hình)
-        toast.error(err.response.data.message);
-        
-        // 2. Hiện chữ đỏ ngay trong Form ("Đập vào mắt")
-        setErrorMsg(err.response.data.message);
-      } else {
-        toast.error("Lỗi kết nối server");
-        setErrorMsg("Không thể kết nối đến server.");
-      }
-      
-      // QUAN TRỌNG: Không đóng Dialog (setIsAddOpen(false)) để user thấy lỗi
-    }
-  };
+  // Tạo location
+  let location = '';
+  if (locationType === 'online') {
+    location = meetLink.trim() || 'Google Meet';
+  } else {
+    location = `${locationType === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'} - ${customLocation.trim() || 'Phòng chưa xác định'}`;
+  }
+
+  try {
+    await api.post('/api/tutor/schedule', {
+      dayOfWeek: dayInt,
+      startTime,
+      endTime,
+      title: sessionTitle.trim(),
+      location: location,
+    });
+
+    toast.success('Đã thêm khung giờ thành công!');
+
+    // Reset form
+    setIsAddOpen(false);
+    setSessionTitle('');
+    setLocationType('online');
+    setMeetLink('');
+    setCustomLocation('');
+    setStartTime('14:00');
+    setEndTime('16:00');
+    setSelectedDayOfWeek('3');
+
+    fetchData();
+  } catch (err: any) {
+    toast.error(err.response?.data?.message || 'Lỗi hệ thống');
+  }
+};
 
   // --- HÀM XÓA LỊCH (ĐÃ FIX) ---
   const handleDeleteAvailability = async (id: number) => {
@@ -373,88 +392,239 @@ export default function TutorDashboard() {
           </div>
         </TabsContent>
 
-        {/* TAB 2: AVAILABILITY (ĐÃ FIX LỖI DAYNAMES) */}
-        <TabsContent value="availability">
-          <Card className="shadow-xl">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-2xl">Khung giờ rảnh hàng tuần</CardTitle>
-                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-[#0B5FA5] hover:bg-[#094a85]"><Plus className="w-5 h-5 mr-2" /> Thêm khung giờ</Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-white max-w-md shadow-2xl rounded-2xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-2xl font-bold text-[#0B5FA5]">Thêm khung giờ rảnh</DialogTitle>
-                      <DialogDescription>Chọn thứ và thời gian bạn có thể nhận lớp.</DialogDescription>
-                    </DialogHeader>
-                    {errorMsg && (
-    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
-      <X className="w-4 h-4" /> {errorMsg}
-    </div>
-  )}
-                    <div className="space-y-6 py-6">
-                      <div className="space-y-2">
-                        <Label>Chọn thứ trong tuần</Label>
-                        <Select value={selectedDayOfWeek} onValueChange={setSelectedDayOfWeek}>
-                          <SelectTrigger className="w-full h-12 bg-white"><SelectValue placeholder="Chọn thứ..." /></SelectTrigger>
-                          <SelectContent className="bg-white z-[9999]">
-                            {[1,2,3,4,5,6,0].map(d => (
-                                <SelectItem key={d} value={d.toString()}>{d === 0 ? 'Chủ Nhật' : `Thứ ${d+1}`}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2"><Label>Bắt đầu</Label><Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Kết thúc</Label><Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>
-                      </div>
-                      <div className="flex gap-4 justify-end pt-4 border-t">
-                        <Button variant="outline" onClick={() => setIsAddOpen(false)}>Hủy</Button>
-                        <Button onClick={handleAddAvailability} className="bg-[#0B5FA5] text-white">Lưu lại</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+{/* TAB 2: CÀI ĐẶT LỊCH RẢNH – PHIÊN BẢN HOÀN HẢO 2025 */}
+<TabsContent value="availability">
+  <Card className="shadow-2xl border-0">
+    <CardHeader className="pb-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <CardTitle className="text-3xl font-bold text-[#0B5FA5]">
+            Khung giờ rảnh hàng tuần
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-2">
+            Sinh viên sẽ thấy tiêu đề, hình thức học và địa điểm chi tiết
+          </p>
+        </div>
+
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-[#0B5FA5] hover:bg-[#094a85] font-bold text-lg px-6 py-6 shadow-lg">
+              <Plus className="w-6 h-6 mr-3" />
+              Thêm khung giờ
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent className="max-w-3xl bg-white">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-[#0B5FA5]">Thêm khung giờ rảnh</DialogTitle>
+            </DialogHeader>
+
+            {errorMsg && (
+              <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                <X className="w-5 h-5" />
+                <span className="font-medium">{errorMsg}</span>
               </div>
-            </CardHeader>
-            <CardContent>
-              {availabilitySlots.length === 0 ? (
-                <p className="text-center py-16 text-gray-500">Chưa có khung giờ rảnh nào</p>
+            )}
+
+            <div className="space-y-6 py-4">
+              {/* TIÊU ĐỀ BUỔI HỌC */}
+              <div className="space-y-2">
+                <Label className="text-lg font-semibold text-gray-800">
+                  Tiêu đề buổi học <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  placeholder="VD: Ôn tập Cấu trúc dữ liệu, Hỗ trợ React Hook, Luyện Speaking..."
+                  value={sessionTitle}
+                  onChange={(e) => setSessionTitle(e.target.value)}
+                  className="mt-2 text-lg"
+                />
+              </div>
+
+              {/* HÌNH THỨC HỌC */}
+              <div>
+                <Label className="text-lg font-semibold text-gray-800 mb-4 block">Hình thức học</Label>
+                <div className="grid grid-cols-3 gap-4">
+                  {(['online', 'cs1', 'cs2'] as const).map((type) => (
+                    <label
+                      key={type}
+                      className={`cursor-pointer flex flex-col items-center p-6 rounded-2xl border-4 transition-all ${
+                        locationType === type
+                          ? type === 'online'
+                            ? 'border-[#0B5FA5] bg-blue-50'
+                            : type === 'cs1'
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-orange-600 bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-400'
+                      } shadow-md hover:shadow-lg`}
+                    >
+                      <input
+                        type="radio"
+                        name="locationType"
+                        value={type}
+                        checked={locationType === type}
+                        onChange={() => setLocationType(type)}
+                        className="sr-only"
+                      />
+                      {type === 'online' ? (
+                        <Video className="w-14 h-14 mb-3 text-[#0B5FA5]" />
+                      ) : (
+                        <MapPin className={`w-14 h-14 mb-3 ${type === 'cs1' ? 'text-green-600' : 'text-orange-600'}`} />
+                      )}
+                      <span className="font-bold text-lg">
+                        {type === 'online' ? 'Online' : type === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* ĐỊA ĐIỂM CHI TIẾT */}
+              {locationType !== 'online' ? (
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Phòng học cụ thể</Label>
+                  <Input
+                    placeholder={locationType === 'cs1' ? 'VD: Phòng 304 - Tòa A4' : 'VD: Phòng 205 - Tòa H6'}
+                    value={customLocation}
+                    onChange={(e) => setCustomLocation(e.target.value)}
+                    className="text-lg"
+                  />
+                </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Thứ</TableHead>
-                      <TableHead>Thời gian</TableHead>
-                      <TableHead className="text-right">Hành động</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {availabilitySlots
-                    .sort((a,b) => {
-                         const da = a.dayOfWeek === 0 ? 7 : a.dayOfWeek;
-                         const db = b.dayOfWeek === 0 ? 7 : b.dayOfWeek;
-                         return da - db;
-                    })
-                    .map(slot => (
-                      <TableRow key={slot.id}>
-                        {/* FIX LỖI: Đã có dayNames để sử dụng */}
-                        <TableCell className="font-bold text-[#0B5FA5]">{dayNames[slot.dayOfWeek]}</TableCell>
-                        <TableCell className="font-medium"><Badge variant="outline">{slot.startTime} - {slot.endTime}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <Button size="sm" variant="ghost" onClick={() => handleDeleteAvailability(slot.id)} className="text-red-600 hover:bg-red-50">
-                            <Trash2 className="w-5 h-5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Link Google Meet / Zoom</Label>
+                  <Input
+                    placeholder="https://meet.google.com/abc-xyz-def"
+                    value={meetLink}
+                    onChange={(e) => setMeetLink(e.target.value)}
+                    className="text-lg"
+                  />
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+
+              {/* THỨ & GIỜ */}
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Thứ trong tuần</Label>
+                  <Select value={selectedDayOfWeek} onValueChange={setSelectedDayOfWeek}>
+                    <SelectTrigger className="h-14 text-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4,5,6,0].map(d => (
+                        <SelectItem key={d} value={d.toString()} className="text-lg py-3">
+                          {d === 0 ? 'Chủ Nhật' : `Thứ ${d + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Thời gian</Label>
+                  <div className="flex items-center gap-4">
+                    <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="text-lg" />
+                    <span className="text-2xl font-bold text-gray-600">→</span>
+                    <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="text-lg" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-4 pt-6 border-t">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => {
+                    setIsAddOpen(false);
+                    setSessionTitle('');
+                    setLocationType('online');
+                    setMeetLink('');
+                    setCustomLocation('');
+                    setErrorMsg('');
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={handleAddAvailability}
+                  className="bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold px-10"
+                >
+                  Lưu khung giờ
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </CardHeader>
+
+    {/* DANH SÁCH KHUNG GIỜ – ĐẸP NHẤT 2025 */}
+    <CardContent>
+      {availabilitySlots.length === 0 ? (
+        <div className="text-center py-32">
+          <Calendar className="w-32 h-32 mx-auto mb-6 text-gray-200" />
+          <p className="text-2xl text-gray-500 font-medium">Chưa có khung giờ rảnh nào</p>
+          <p className="text-gray-400 mt-2">Bấm nút "Thêm khung giờ" để bắt đầu</p>
+        </div>
+      ) : (
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {availabilitySlots.map((slot) => {
+  const isOnline = slot.location?.toLowerCase().includes('meet') || 
+                   slot.location?.toLowerCase().includes('google');
+
+              return (
+    <Card key={slot.id} className="shadow-xl hover:shadow-2xl transition-all">
+      <CardContent className="pt-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <p className="text-xl font-bold text-[#0B5FA5]">
+              {dayNames[slot.dayOfWeek]}
+            </p>
+            <p className="text-2xl font-bold text-gray-800 mt-2">
+              {slot.startTime} - {slot.endTime}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleDeleteAvailability(slot.id)}
+            className="text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* TIÊU ĐỀ */}
+        <div className="p-4 bg-gradient-to-r from-[#0B5FA5]/10 to-blue-50 rounded-xl border-l-4 border-l-[#0B5FA5]">
+          <p className="text-sm font-medium text-gray-600">Tiêu đề buổi học:</p>
+          <p className="font-bold text-[#0B5FA5] mt-1 text-lg">
+            {slot.title || 'Tư vấn 1:1'}
+          </p>
+        </div>
+
+        {/* ĐỊA ĐIỂM */}
+        <div className="mt-4 flex items-center gap-3 text-lg">
+          {isOnline ? (
+            <>
+              <Video className="w-6 h-6 text-blue-600" />
+              <span className="font-medium text-blue-700">Online • {slot.location}</span>
+            </>
+          ) : (
+            <>
+              <MapPin className="w-6 h-6 text-red-600" />
+              <span className="font-medium text-red-700">Offline • {slot.location || 'Chưa xác định'}</span>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+            })}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
 
         {/* TAB 3: REQUESTS (ĐÃ BỔ SUNG LOCATION & NOTE) */}
         <TabsContent value="requests">

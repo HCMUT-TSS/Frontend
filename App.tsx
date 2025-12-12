@@ -14,6 +14,7 @@ import Reports from './components/Reports';
 import Library from './components/Library';
 import Community from './components/Community';
 import { Button } from './components/ui/button';
+import { Toaster } from 'sonner';
 
 // Fake Mock (giữ lại để test nhanh)
 // import SessionCalendarFake from './components/FakeMockSessionCalender';
@@ -26,7 +27,7 @@ export default function App() {
   const [userRole, setUserRole] = useState<Role>('student'); // mặc định student
   const [userEmail, setUserEmail] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<string>('calendar');
-
+  <Toaster position="top-right" />
   useEffect(() => {
     fetch('/api/user/me', { credentials: 'include' })
       .then(res => {
