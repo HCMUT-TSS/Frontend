@@ -1,348 +1,164 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Label } from './ui/label';
-import { MessageSquare, ThumbsUp, MessageCircle, Calendar, Pin, Plus, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import axios from 'axios';
 import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { ChevronLeft, MessageCircle, Calendar, Users, MapPin, Video } from 'lucide-react';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  withCredentials: true,
+});
+
+interface ClassSession {
+  id: number;
+  title: string;           // Lấy từ cột title trong Schedules
+  tutorName: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location?: string;
+  meetLink?: string;
+}
 
 export default function Community() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [classes, setClasses] = useState<ClassSession[]>([]);
+  const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const posts = [
-    {
-      id: 1,
-      author: 'Nguyễn Văn A',
-      avatar: 'NVA',
-      role: 'Sinh viên',
-      time: '2 giờ trước',
-      category: 'Học thuật',
-      title: 'Cách tối ưu hóa thuật toán sắp xếp',
-      content: 'Mình đang gặp khó khăn với việc tối ưu hóa thuật toán sắp xếp trong bài tập lớn. Các bạn có thể chia sẻ kinh nghiệm không?',
-      likes: 12,
-      comments: 5,
-      isPinned: false,
-    },
-    {
-      id: 2,
-      author: 'Trần Thị B',
-      avatar: 'TTB',
-      role: 'Tutor',
-      time: '5 giờ trước',
-      category: 'Kỹ năng',
-      title: 'Tips quản lý thời gian hiệu quả',
-      content: 'Chia sẻ một số mẹo quản lý thời gian giúp mình cân bằng việc học và hoạt động ngoại khóa...',
-      likes: 28,
-      comments: 12,
-      isPinned: true,
-    },
-    {
-      id: 3,
-      author: 'Lê Văn C',
-      avatar: 'LVC',
-      role: 'Sinh viên',
-      time: '1 ngày trước',
-      category: 'Sự kiện',
-      title: 'Workshop: Lập trình Python cơ bản',
-      content: 'Tuần sau sẽ có workshop về Python cơ bản. Ai quan tâm có thể tham gia nhé!',
-      likes: 45,
-      comments: 18,
-      isPinned: false,
-    },
-  ];
+  const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-  const events = [
-    {
-      title: 'Workshop: Git & GitHub',
-      date: '05/11/2025',
-      time: '14:00 - 16:00',
-      location: 'Phòng H1-302',
-      participants: 25,
-    },
-    {
-      title: 'Seminar: Kỹ năng học tập',
-      date: '08/11/2025',
-      time: '09:00 - 11:00',
-      location: 'Hội trường A',
-      participants: 50,
-    },
-  ];
+  // LẤY DANH SÁCH LỚP HỌC (dùng API tutor/schedule vì có title)
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await api.get('/api/tutor/schedule');
+        const data = res.data.schedules || res.data || [];
 
-  const handleCreatePost = () => {
-    setIsDialogOpen(false);
-    toast.success('Đã đăng bài thành công!');
-  };
+        const formatted = data
+          .filter((s: any) => s.isActive)
+          .map((s: any) => ({
+            id: s.id,
+            title: s.title || 'Buổi tư vấn 1:1',
+            tutorName: 'Tutor', // bạn có thể join với User sau nếu cần
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            location: s.location,
+            meetLink: s.meetLink,
+          }));
+        setClasses(formatted);
+      } catch (err) {
+        toast.error('Không tải được danh sách lớp');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClasses();
+  }, []);
 
-  const handleLike = (postId: number) => {
-    toast.success('Đã thích bài viết!');
-  };
+  if (loading) {
+    return <div className="p-20 text-center text-2xl">Đang tải lớp học...</div>;
+  }
 
-  const handleComment = (post: any) => {
-    setSelectedPost(post);
-  };
+  // TRANG CHỦ: DANH SÁCH LỚP HỌC
+  if (!selectedClass) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <h1 className="text-5xl font-extrabold text-center text-[#0B5FA5] mb-12">
+          CỘNG ĐỒNG LỚP HỌC
+        </h1>
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle>Cộng đồng Tutor-Mentee</CardTitle>
-                  <CardDescription>
-                    Diễn đàn trao đổi và chia sẻ kiến thức
-                  </CardDescription>
-                </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-[#0B5FA5] hover:bg-[#094A7F]">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Tạo bài viết
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Tạo bài viết mới</DialogTitle>
-                      <DialogDescription>
-                        Chia sẻ câu hỏi, kiến thức hoặc thông báo với cộng đồng
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleCreatePost(); }}>
-                      <div className="space-y-2">
-                        <Label htmlFor="category">Danh mục</Label>
-                        <select
-                          id="category"
-                          className="w-full px-3 py-2 border rounded-md"
-                          required
-                        >
-                          <option value="">Chọn danh mục</option>
-                          <option value="academic">Học thuật</option>
-                          <option value="skills">Kỹ năng</option>
-                          <option value="events">Sự kiện</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="title">Tiêu đề</Label>
-                        <Input id="title" placeholder="Nhập tiêu đề..." required />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="content">Nội dung</Label>
-                        <Textarea
-                          id="content"
-                          placeholder="Viết nội dung bài đăng..."
-                          rows={6}
-                          required
-                        />
-                      </div>
-                      <div className="flex gap-4">
-                        <Button type="submit" className="flex-1 bg-[#0B5FA5] hover:bg-[#094A7F]">
-                          Đăng bài
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                          Hủy
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="all" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="all">Tất cả</TabsTrigger>
-                  <TabsTrigger value="academic">Học thuật</TabsTrigger>
-                  <TabsTrigger value="skills">Kỹ năng</TabsTrigger>
-                  <TabsTrigger value="events">Sự kiện</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="all" className="space-y-4">
-                  {posts.map((post) => (
-                    <Card key={post.id}>
-                      <CardContent className="pt-6">
-                        {post.isPinned && (
-                          <div className="flex items-center gap-1 text-sm text-[#0B5FA5] mb-2">
-                            <Pin className="w-4 h-4" />
-                            <span>Đã ghim</span>
-                          </div>
-                        )}
-                        <div className="flex items-start gap-3">
-                          <Avatar>
-                            <AvatarImage src="" />
-                            <AvatarFallback className="bg-[#0B5FA5] text-white">
-                              {post.avatar}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-sm">{post.author}</h4>
-                              <Badge variant="secondary" className="text-xs">
-                                {post.role}
-                              </Badge>
-                              <span className="text-xs text-gray-500">{post.time}</span>
-                            </div>
-                            <Badge className="mb-2 text-xs bg-[#0B5FA5]">
-                              {post.category}
-                            </Badge>
-                            <h3 className="mb-2">{post.title}</h3>
-                            <p className="text-sm text-gray-600 mb-4">{post.content}</p>
-                            <div className="flex items-center gap-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleLike(post.id)}
-                              >
-                                <ThumbsUp className="w-4 h-4 mr-1" />
-                                {post.likes}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleComment(post)}
-                              >
-                                <MessageCircle className="w-4 h-4 mr-1" />
-                                {post.comments}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {selectedPost?.id === post.id && (
-                          <div className="mt-4 pt-4 border-t">
-                            <div className="space-y-3 mb-4">
-                              <div className="flex gap-3">
-                                <Avatar className="w-8 h-8">
-                                  <AvatarFallback className="bg-gray-300">U</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 bg-gray-50 rounded-lg p-3">
-                                  <p className="text-sm mb-1">Phạm Văn D</p>
-                                  <p className="text-sm text-gray-600">
-                                    Bạn có thể tham khảo thuật toán Quick Sort với độ phức tạp O(n log n)
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Input placeholder="Viết bình luận..." className="flex-1" />
-                              <Button size="sm" className="bg-[#0B5FA5]">
-                                <Send className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </TabsContent>
-
-                <TabsContent value="academic">
-                  <p className="text-center text-gray-500 py-8">Chưa có bài viết học thuật</p>
-                </TabsContent>
-                <TabsContent value="skills">
-                  <p className="text-center text-gray-500 py-8">Chưa có bài viết kỹ năng</p>
-                </TabsContent>
-                <TabsContent value="events">
-                  <p className="text-center text-gray-500 py-8">Chưa có sự kiện</p>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
+        {classes.length === 0 ? (
+          <Card className="text-center py-32">
+            <p className="text-3xl font-bold text-gray-600">Chưa có lớp học nào</p>
           </Card>
-        </div>
+        ) : (
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {classes.map((cls) => (
+              <Card
+                key={cls.id}
+                className="cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl"
+                onClick={() => setSelectedClass(cls)}
+              >
+                <CardContent className="p-8 text-center">
+                  <h3 className="text-3xl font-bold text-[#0B5FA5] mb-6 line-clamp-2 min-h-24">
+                    {cls.title}
+                  </h3>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Upcoming Events */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="w-5 h-5" />
-                Sự kiện sắp tới
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {events.map((event, index) => (
-                <div key={index} className="p-3 border rounded-lg hover:bg-gray-50">
-                  <h4 className="text-sm mb-2">{event.title}</h4>
-                  <div className="space-y-1 text-xs text-gray-500">
-                    <p>📅 {event.date} • {event.time}</p>
-                    <p>📍 {event.location}</p>
-                    <p>👥 {event.participants} người tham gia</p>
+                  <div className="space-y-4 mb-8">
+                    <p className="text-2xl font-semibold text-gray-800">
+                      {dayNames[cls.dayOfWeek]}
+                    </p>
+                    <p className="text-4xl font-extrabold text-[#0B5FA5]">
+                      {cls.startTime} - {cls.endTime}
+                    </p>
                   </div>
-                  <Button size="sm" className="w-full mt-2 bg-[#0B5FA5]">
-                    Đăng ký
+
+                  <div className="flex items-center justify-center gap-3 text-lg">
+                    {cls.meetLink ? (
+                      <>
+                        <Video className="w-8 h-8 text-blue-600" />
+                        <span className="font-bold text-blue-700">Online</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-8 h-8 text-red-600" />
+                        <span className="font-bold text-red-700">Offline</span>
+                      </>
+                    )}
+                  </div>
+
+                  <Button className="w-full mt-8 bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold text-xl py-8 text-2xl">
+                    <MessageCircle className="w-8 h-8 mr-4" />
+                    Vào thảo luận
                   </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Popular Topics */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <MessageSquare className="w-5 h-5" />
-                Chủ đề phổ biến
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {['Lập trình', 'Toán', 'Vật lý', 'Kỹ năng mềm', 'Nghiên cứu', 'Học bổng'].map(
-                  (topic) => (
-                    <Badge key={topic} variant="outline" className="cursor-pointer hover:bg-gray-100">
-                      {topic}
-                    </Badge>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Active Users */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Thành viên hoạt động</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {['Phạm Văn D', 'Hoàng Thị E', 'Võ Văn F', 'Trần Thị G'].map((user) => (
-                  <div key={user} className="flex items-center gap-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-[#0B5FA5] text-white text-xs">
-                        {user.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{user}</span>
-                    <div className="ml-auto w-2 h-2 bg-green-500 rounded-full"></div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Community Guidelines */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quy tắc cộng đồng</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm space-y-2 text-gray-600">
-                <li>• Tôn trọng ý kiến của mọi người</li>
-                <li>• Không spam hoặc quảng cáo</li>
-                <li>• Chia sẻ kiến thức hữu ích</li>
-                <li>• Hỗ trợ lẫn nhau trong học tập</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+    );
+  }
+
+  // TRANG THẢO LUẬN CỦA 1 LỚP
+  return (
+    <div className="p-8 max-w-6xl mx-auto">
+      <Button
+        variant="ghost"
+        className="mb-8 text-xl"
+        onClick={() => setSelectedClass(null)}
+      >
+        <ChevronLeft className="w-6 h-6 mr-2" /> Quay lại danh sách lớp
+      </Button>
+
+      <Card className="shadow-2xl">
+        <CardContent className="pt-10">
+          <div className="text-center mb-12">
+            <h1 className="text-5xl font-extrabold text-[#0B5FA5] mb-4">
+              {selectedClass.title}
+            </h1>
+            <p className="text-2xl text-gray-700">
+              {dayNames[selectedClass.dayOfWeek]} • {selectedClass.startTime} - {selectedClass.endTime}
+            </p>
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Users className="w-8 h-8 text-gray-600" />
+              <span className="text-xl font-semibold">12 thành viên</span>
+            </div>
+          </div>
+
+          <div className="text-center py-20 text-gray-500">
+            <MessageCircle className="w-32 h-32 mx-auto mb-6 text-gray-300" />
+            <p className="text-3xl font-bold">Phòng thảo luận đang phát triển</p>
+            <p className="text-xl mt-4">Sắp có bình luận, tài liệu, thông báo...</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
