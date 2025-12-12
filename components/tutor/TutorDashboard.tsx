@@ -69,6 +69,7 @@ interface BookingRequest {
   status: 'pending' | 'confirmed' | 'rejected';
   meetLink?: string;
   location?: string | null;
+  subject?: string;
 }
 
 export default function TutorDashboard() {
@@ -228,22 +229,45 @@ export default function TutorDashboard() {
   };
 
   const getConfirmedSessionsOnDate = (date: Date) => {
+    // Helper: Cắt chuỗi giờ chỉ lấy HH:mm (Bỏ :ss nếu có)
+    const normalizeTime = (t: string) => (t ? t.substring(0, 5) : '');
+
     return bookingRequests
-      .filter(r => {
+      .filter((r) => {
         if (r.status !== 'confirmed') return false;
         if (!r.preferredDate) return false;
         const reqDate = parseISO(r.preferredDate);
         return isValid(reqDate) && isSameDay(reqDate, date);
       })
-      .map(r => ({
-        id: r.id,
-        studentName: r.student?.user?.name || 'Sinh viên',
-        startTime: r.startTime,
-        endTime: r.endTime,
-        location: r.location || 'Online',
-        meetLink: r.meetLink,
-        note: r.description || '',
-      }))
+      .map((r) => {
+        // --- LOGIC MAP TITLE ---
+        const reqDate = parseISO(r.preferredDate);
+        const currentDayOfWeek = reqDate.getDay(); // 0=CN, 1=T2...
+        
+        // Chuẩn hóa giờ booking
+        const bookingTime = normalizeTime(r.startTime);
+
+        // Tìm lịch Tutor khớp Thứ & Giờ (đã chuẩn hóa)
+        const matchedSchedule = availabilitySlots.find((slot) => {
+          const slotTime = normalizeTime(slot.startTime);
+          return slot.dayOfWeek === currentDayOfWeek && slotTime === bookingTime;
+        });
+
+        // Lấy title
+        const displayTitle = matchedSchedule?.title || r.subject || 'Buổi học';
+        // -----------------------
+
+        return {
+          id: r.id,
+          studentName: r.student?.user?.name || 'Sinh viên',
+          startTime: normalizeTime(r.startTime), // Format lại giờ hiển thị đẹp luôn
+          endTime: normalizeTime(r.endTime),
+          location: r.location || 'Online',
+          meetLink: r.meetLink,
+          note: r.description || '',
+          title: displayTitle, // <--- Đã có Title chính xác
+        };
+      })
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   };
 
@@ -332,60 +356,84 @@ export default function TutorDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
                   {(() => {
-                    const dailySessions = getConfirmedSessionsOnDate(selectedDate);
+  const dailySessions = getConfirmedSessionsOnDate(selectedDate);
 
-                    if (dailySessions.length === 0) {
-                      return (
-                        <div className="flex flex-col items-center justify-center h-64 text-center opacity-80">
-                          <Calendar className="w-20 h-20 mb-4 opacity-50" />
-                          <p className="text-xl font-medium">Không có lịch dạy</p>
-                        </div>
-                      );
-                    }
+  if (dailySessions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center opacity-80">
+        <Calendar className="w-20 h-20 mb-4 opacity-50" />
+        <p className="text-xl font-medium">Không có lịch dạy</p>
+      </div>
+    );
+  }
 
-                    return dailySessions.map((session) => (
-                      <div key={session.id} className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20 shadow-lg mb-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <User className="w-5 h-5 text-green-300" />
-                            <span className="font-bold text-lg truncate w-40" title={session.studentName}>
-                              {session.studentName}
-                            </span>
-                          </div>
-                          <Badge className="bg-green-500 border-none text-white hover:bg-green-600">Confirmed</Badge>
-                        </div>
+  return dailySessions.map((session) => (
+    <div
+      key={session.id}
+      className="mb-4 p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow text-slate-800"
+    >
+      {/* --- HIỂN THỊ TIÊU ĐỀ (SUBJECT) --- */}
+      <div className="mb-3 pb-2 border-b border-slate-100">
+        <h4 className="font-bold text-lg text-[#0B5FA5]">
+          {session.title}
+        </h4>
+      </div>
 
-                        <div className="text-2xl font-bold mb-3 tracking-wide border-b border-white/10 pb-2">
-                          {session.startTime} - {session.endTime}
-                        </div>
+      {/* Thông tin sinh viên */}
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center font-medium text-slate-700">
+          <User className="w-4 h-4 mr-2 text-slate-500" />
+          {session.studentName}
+        </div>
+        <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Confirmed</Badge>
+      </div>
 
-                        {/* --- BỔ SUNG THÔNG TIN CHI TIẾT --- */}
-                        <div className="space-y-3 text-sm text-blue-50">
-                          {/* 1. Vị trí */}
-                          <div className="flex items-start gap-2">
-                            {isOnline(session.location) ? <Video className="w-4 h-4 mt-0.5 text-yellow-300" /> : <MapPin className="w-4 h-4 mt-0.5 text-red-300" />}
-                            <span className="font-medium">{session.location || 'Chưa xác định địa điểm'}</span>
-                          </div>
+      {/* Thời gian */}
+      <div className="flex items-center text-sm text-slate-500 mb-3">
+        <Calendar className="w-4 h-4 mr-2" />
+        {session.startTime} - {session.endTime}
+      </div>
 
-                          {/* 2. Ghi chú (Nếu có) */}
-                          {session.note && (
-                            <div className="flex items-start gap-2 bg-black/20 p-2 rounded-lg">
-                              <FileText className="w-4 h-4 mt-0.5 shrink-0 text-blue-200" />
-                              <span className="italic opacity-90">"{session.note}"</span>
-                            </div>
-                          )}
-                        </div>
+      {/* --- THÔNG TIN CHI TIẾT (LOCATION & NOTE) --- */}
+      <div className="space-y-2 text-sm bg-slate-50 p-3 rounded-md border border-slate-100">
+        {/* 1. Vị trí */}
+        <div className="flex items-start text-slate-700">
+          {isOnline(session.location) ? (
+            <Video className="w-4 h-4 mr-2 mt-0.5 text-blue-500" />
+          ) : (
+            <MapPin className="w-4 h-4 mr-2 mt-0.5 text-red-500" />
+          )}
+          <span className="font-medium">
+            {session.location || 'Chưa xác định địa điểm'}
+          </span>
+        </div>
 
-                        {session.meetLink && (
-                          <Button className="w-full mt-4 bg-white text-[#0B5FA5] hover:bg-gray-100 font-bold shadow-md" asChild>
-                            <a href={session.meetLink} target="_blank" rel="noreferrer">
-                              <Video className="w-4 h-4 mr-2" /> Vào lớp ngay
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    ));
-                  })()}
+        {/* 2. Ghi chú (Nếu có) */}
+        {session.note && (
+          <div className="flex items-start text-slate-600 italic">
+            <FileText className="w-4 h-4 mr-2 mt-0.5" />
+            <span>"{session.note}"</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nút vào lớp (nếu có link) */}
+      {session.meetLink && (
+        <div className="mt-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+            onClick={() => window.open(session.meetLink, '_blank')}
+          >
+            <Video className="w-4 h-4 mr-2" />
+            Vào lớp ngay
+          </Button>
+        </div>
+      )}
+    </div>
+  ));
+})()}
                 </CardContent>
               </Card>
             </div>
