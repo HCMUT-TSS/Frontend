@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  format, 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  isSameDay, 
-  addMonths, 
-  subMonths, 
-  parseISO, 
-  isValid, 
-  startOfWeek, 
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameDay,
+  addMonths,
+  subMonths,
+  parseISO,
+  isValid,
+  startOfWeek,
   endOfWeek,
-  isSameMonth 
+  isSameMonth
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import axios from 'axios';
@@ -19,13 +19,13 @@ import { toast } from 'sonner';
 
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
-  DialogDescription 
+  DialogDescription
 } from '../ui/dialog';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -55,20 +55,21 @@ interface AvailabilitySlot {
 interface BookingRequest {
   id: number;
   studentId: number;
-  student: { 
-    user: { 
-      name: string; 
+  student: {
+    user: {
+      name: string;
       email?: string;
       faculty?: string;
-    } 
+    }
   };
-  preferredDate: string; 
+  preferredDate: string;
   startTime: string;
   endTime: string;
   description?: string;
   status: 'pending' | 'confirmed' | 'rejected';
   meetLink?: string;
   location?: string | null;
+  subject?: string;
 }
 
 export default function TutorDashboard() {
@@ -88,14 +89,14 @@ export default function TutorDashboard() {
 
   const [currentMonth, setCurrentMonth] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
-  
+
   // STATE DATA
-  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]); 
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);       
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // STATE FORM ADD
-  
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState('3');
   const [startTime, setStartTime] = useState('14:00');
@@ -143,60 +144,60 @@ export default function TutorDashboard() {
 
   // --- HÀM THÊM LỊCH (ĐÃ FIX) ---
   const handleAddAvailability = async () => {
-  setErrorMsg("");
+    setErrorMsg("");
 
-  if (!startTime || !endTime || startTime >= endTime) {
-    setErrorMsg('Giờ không hợp lệ');
-    return;
-  }
+    if (!startTime || !endTime || startTime >= endTime) {
+      setErrorMsg('Giờ không hợp lệ');
+      return;
+    }
 
-  if (!sessionTitle.trim()) {
-    setErrorMsg('Vui lòng nhập tiêu đề buổi học');
-    return;
-  }
+    if (!sessionTitle.trim()) {
+      setErrorMsg('Vui lòng nhập tiêu đề buổi học');
+      return;
+    }
 
-  const dayInt = parseInt(selectedDayOfWeek, 10);
+    const dayInt = parseInt(selectedDayOfWeek, 10);
 
-  // Tạo location
-  let location = '';
-  if (locationType === 'online') {
-    location = meetLink.trim() || 'Google Meet';
-  } else {
-    location = `${locationType === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'} - ${customLocation.trim() || 'Phòng chưa xác định'}`;
-  }
+    // Tạo location
+    let location = '';
+    if (locationType === 'online') {
+      location = meetLink.trim() || 'Google Meet';
+    } else {
+      location = `${locationType === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'} - ${customLocation.trim() || 'Phòng chưa xác định'}`;
+    }
 
-  try {
-    await api.post('/api/tutor/schedule', {
-      dayOfWeek: dayInt,
-      startTime,
-      endTime,
-      title: sessionTitle.trim(),
-      location: location,
-    });
+    try {
+      await api.post('/api/tutor/schedule', {
+        dayOfWeek: dayInt,
+        startTime,
+        endTime,
+        title: sessionTitle.trim(),
+        location: location,
+      });
 
-    toast.success('Đã thêm khung giờ thành công!');
+      toast.success('Đã thêm khung giờ thành công!');
 
-    // Reset form
-    setIsAddOpen(false);
-    setSessionTitle('');
-    setLocationType('online');
-    setMeetLink('');
-    setCustomLocation('');
-    setStartTime('14:00');
-    setEndTime('16:00');
-    setSelectedDayOfWeek('3');
+      // Reset form
+      setIsAddOpen(false);
+      setSessionTitle('');
+      setLocationType('online');
+      setMeetLink('');
+      setCustomLocation('');
+      setStartTime('14:00');
+      setEndTime('16:00');
+      setSelectedDayOfWeek('3');
 
-    fetchData();
-  } catch (err: any) {
-    toast.error(err.response?.data?.message || 'Lỗi hệ thống');
-  }
-};
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi hệ thống');
+    }
+  };
 
   // --- HÀM XÓA LỊCH (ĐÃ FIX) ---
   const handleDeleteAvailability = async (id: number) => {
     if (!id) return;
     if (!confirm('Bạn có chắc muốn xóa?')) return;
-    
+
     try {
       await api.delete(`/api/tutor/schedule/${id}`);
       toast.success('Đã xóa khung giờ');
@@ -210,7 +211,7 @@ export default function TutorDashboard() {
     try {
       await api.patch(`/api/tutor/booking-requests/${id}/confirm`);
       toast.success('Đã xác nhận!');
-      fetchData(); 
+      fetchData();
     } catch {
       toast.error('Lỗi xác nhận');
     }
@@ -228,22 +229,45 @@ export default function TutorDashboard() {
   };
 
   const getConfirmedSessionsOnDate = (date: Date) => {
+    // Helper: Cắt chuỗi giờ chỉ lấy HH:mm (Bỏ :ss nếu có)
+    const normalizeTime = (t: string) => (t ? t.substring(0, 5) : '');
+
     return bookingRequests
-      .filter(r => {
+      .filter((r) => {
         if (r.status !== 'confirmed') return false;
         if (!r.preferredDate) return false;
         const reqDate = parseISO(r.preferredDate);
         return isValid(reqDate) && isSameDay(reqDate, date);
       })
-      .map(r => ({
-        id: r.id,
-        studentName: r.student?.user?.name || 'Sinh viên',
-        startTime: r.startTime,
-        endTime: r.endTime,
-        location: r.location || 'Online',
-        meetLink: r.meetLink,
-        note: r.description || '',
-      }))
+      .map((r) => {
+        // --- LOGIC MAP TITLE ---
+        const reqDate = parseISO(r.preferredDate);
+        const currentDayOfWeek = reqDate.getDay(); // 0=CN, 1=T2...
+        
+        // Chuẩn hóa giờ booking
+        const bookingTime = normalizeTime(r.startTime);
+
+        // Tìm lịch Tutor khớp Thứ & Giờ (đã chuẩn hóa)
+        const matchedSchedule = availabilitySlots.find((slot) => {
+          const slotTime = normalizeTime(slot.startTime);
+          return slot.dayOfWeek === currentDayOfWeek && slotTime === bookingTime;
+        });
+
+        // Lấy title
+        const displayTitle = matchedSchedule?.title || r.subject || 'Buổi học';
+        // -----------------------
+
+        return {
+          id: r.id,
+          studentName: r.student?.user?.name || 'Sinh viên',
+          startTime: normalizeTime(r.startTime), // Format lại giờ hiển thị đẹp luôn
+          endTime: normalizeTime(r.endTime),
+          location: r.location || 'Online',
+          meetLink: r.meetLink,
+          note: r.description || '',
+          title: displayTitle, // <--- Đã có Title chính xác
+        };
+      })
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   };
 
@@ -275,8 +299,8 @@ export default function TutorDashboard() {
                       {format(currentMonth, 'MMMM yyyy', { locale: vi })}
                     </CardTitle>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft/></Button>
-                      <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight/></Button>
+                      <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft /></Button>
+                      <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight /></Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -287,7 +311,7 @@ export default function TutorDashboard() {
                       <div key={d} className="py-3 bg-[#0B5FA5]/10 rounded-lg">{d}</div>
                     ))}
                   </div>
-                  
+
                   {/* GRID NGÀY */}
                   <div className="grid grid-cols-7 gap-3">
                     {monthDays.map((day) => {
@@ -332,299 +356,331 @@ export default function TutorDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
                   {(() => {
-                    const dailySessions = getConfirmedSessionsOnDate(selectedDate);
+  const dailySessions = getConfirmedSessionsOnDate(selectedDate);
 
-                    if (dailySessions.length === 0) {
-                      return (
-                        <div className="flex flex-col items-center justify-center h-64 text-center opacity-80">
-                          <Calendar className="w-20 h-20 mb-4 opacity-50" />
-                          <p className="text-xl font-medium">Không có lịch dạy</p>
-                        </div>
-                      );
-                    }
+  if (dailySessions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center opacity-80">
+        <Calendar className="w-20 h-20 mb-4 opacity-50" />
+        <p className="text-xl font-medium">Không có lịch dạy</p>
+      </div>
+    );
+  }
 
-                    return dailySessions.map((session) => (
-                      <div key={session.id} className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20 shadow-lg mb-3">
-                        <div className="flex justify-between items-start mb-2">
-                           <div className="flex items-center gap-2">
-                              <User className="w-5 h-5 text-green-300" />
-                              <span className="font-bold text-lg truncate w-40" title={session.studentName}>
-                                {session.studentName}
-                              </span>
-                           </div>
-                           <Badge className="bg-green-500 border-none text-white hover:bg-green-600">Confirmed</Badge>
-                        </div>
-                        
-                        <div className="text-2xl font-bold mb-3 tracking-wide border-b border-white/10 pb-2">
-                          {session.startTime} - {session.endTime}
-                        </div>
+  return dailySessions.map((session) => (
+    <div
+      key={session.id}
+      className="mb-4 p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow text-slate-800"
+    >
+      {/* --- HIỂN THỊ TIÊU ĐỀ (SUBJECT) --- */}
+      <div className="mb-3 pb-2 border-b border-slate-100">
+        <h4 className="font-bold text-lg text-[#0B5FA5]">
+          {session.title}
+        </h4>
+      </div>
 
-                        {/* --- BỔ SUNG THÔNG TIN CHI TIẾT --- */}
-                        <div className="space-y-3 text-sm text-blue-50">
-                           {/* 1. Vị trí */}
-                           <div className="flex items-start gap-2">
-                              {isOnline(session.location) ? <Video className="w-4 h-4 mt-0.5 text-yellow-300"/> : <MapPin className="w-4 h-4 mt-0.5 text-red-300"/>}
-                              <span className="font-medium">{session.location || 'Chưa xác định địa điểm'}</span>
-                           </div>
+      {/* Thông tin sinh viên */}
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center font-medium text-slate-700">
+          <User className="w-4 h-4 mr-2 text-slate-500" />
+          {session.studentName}
+        </div>
+        <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Confirmed</Badge>
+      </div>
 
-                           {/* 2. Ghi chú (Nếu có) */}
-                           {session.note && (
-                             <div className="flex items-start gap-2 bg-black/20 p-2 rounded-lg">
-                               <FileText className="w-4 h-4 mt-0.5 shrink-0 text-blue-200"/>
-                               <span className="italic opacity-90">"{session.note}"</span>
-                             </div>
-                           )}
-                        </div>
+      {/* Thời gian */}
+      <div className="flex items-center text-sm text-slate-500 mb-3">
+        <Calendar className="w-4 h-4 mr-2" />
+        {session.startTime} - {session.endTime}
+      </div>
 
-                        {session.meetLink && (
-                          <Button className="w-full mt-4 bg-white text-[#0B5FA5] hover:bg-gray-100 font-bold shadow-md" asChild>
-                             <a href={session.meetLink} target="_blank" rel="noreferrer">
-                               <Video className="w-4 h-4 mr-2"/> Vào lớp ngay
-                             </a>
-                          </Button>
-                        )}
-                      </div>
-                    ));
-                  })()}
+      {/* --- THÔNG TIN CHI TIẾT (LOCATION & NOTE) --- */}
+      <div className="space-y-2 text-sm bg-slate-50 p-3 rounded-md border border-slate-100">
+        {/* 1. Vị trí */}
+        <div className="flex items-start text-slate-700">
+          {isOnline(session.location) ? (
+            <Video className="w-4 h-4 mr-2 mt-0.5 text-blue-500" />
+          ) : (
+            <MapPin className="w-4 h-4 mr-2 mt-0.5 text-red-500" />
+          )}
+          <span className="font-medium">
+            {session.location || 'Chưa xác định địa điểm'}
+          </span>
+        </div>
+
+        {/* 2. Ghi chú (Nếu có) */}
+        {session.note && (
+          <div className="flex items-start text-slate-600 italic">
+            <FileText className="w-4 h-4 mr-2 mt-0.5" />
+            <span>"{session.note}"</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nút vào lớp (nếu có link) */}
+      {session.meetLink && (
+        <div className="mt-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+            onClick={() => window.open(session.meetLink, '_blank')}
+          >
+            <Video className="w-4 h-4 mr-2" />
+            Vào lớp ngay
+          </Button>
+        </div>
+      )}
+    </div>
+  ));
+})()}
                 </CardContent>
               </Card>
             </div>
           </div>
         </TabsContent>
 
-{/* TAB 2: CÀI ĐẶT LỊCH RẢNH – PHIÊN BẢN HOÀN HẢO 2025 */}
-<TabsContent value="availability">
-  <Card className="shadow-2xl border-0">
-    <CardHeader className="pb-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <CardTitle className="text-3xl font-bold text-[#0B5FA5]">
-            Khung giờ rảnh hàng tuần
-          </CardTitle>
-          <p className="text-sm text-gray-600 mt-2">
-            Sinh viên sẽ thấy tiêu đề, hình thức học và địa điểm chi tiết
-          </p>
-        </div>
-
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#0B5FA5] hover:bg-[#094a85] font-bold text-lg px-6 py-6 shadow-lg">
-              <Plus className="w-6 h-6 mr-3" />
-              Thêm khung giờ
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent className="max-w-3xl bg-white">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-[#0B5FA5]">Thêm khung giờ rảnh</DialogTitle>
-            </DialogHeader>
-
-            {errorMsg && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                <X className="w-5 h-5" />
-                <span className="font-medium">{errorMsg}</span>
-              </div>
-            )}
-
-            <div className="space-y-6 py-4">
-              {/* TIÊU ĐỀ BUỔI HỌC */}
-              <div className="space-y-2">
-                <Label className="text-lg font-semibold text-gray-800">
-                  Tiêu đề buổi học <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  placeholder="VD: Ôn tập Cấu trúc dữ liệu, Hỗ trợ React Hook, Luyện Speaking..."
-                  value={sessionTitle}
-                  onChange={(e) => setSessionTitle(e.target.value)}
-                  className="mt-2 text-lg"
-                />
-              </div>
-
-              {/* HÌNH THỨC HỌC */}
-              <div>
-                <Label className="text-lg font-semibold text-gray-800 mb-4 block">Hình thức học</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  {(['online', 'cs1', 'cs2'] as const).map((type) => (
-                    <label
-                      key={type}
-                      className={`cursor-pointer flex flex-col items-center p-6 rounded-2xl border-4 transition-all ${
-                        locationType === type
-                          ? type === 'online'
-                            ? 'border-[#0B5FA5] bg-blue-50'
-                            : type === 'cs1'
-                            ? 'border-green-600 bg-green-50'
-                            : 'border-orange-600 bg-orange-50'
-                          : 'border-gray-200 hover:border-gray-400'
-                      } shadow-md hover:shadow-lg`}
-                    >
-                      <input
-                        type="radio"
-                        name="locationType"
-                        value={type}
-                        checked={locationType === type}
-                        onChange={() => setLocationType(type)}
-                        className="sr-only"
-                      />
-                      {type === 'online' ? (
-                        <Video className="w-14 h-14 mb-3 text-[#0B5FA5]" />
-                      ) : (
-                        <MapPin className={`w-14 h-14 mb-3 ${type === 'cs1' ? 'text-green-600' : 'text-orange-600'}`} />
-                      )}
-                      <span className="font-bold text-lg">
-                        {type === 'online' ? 'Online' : type === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'}
-                      </span>
-                    </label>
-                  ))}
+        {/* TAB 2: CÀI ĐẶT LỊCH RẢNH – PHIÊN BẢN HOÀN HẢO 2025 */}
+        <TabsContent value="availability">
+          <Card className="shadow-2xl border-0">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-3xl font-bold text-[#0B5FA5]">
+                    Khung giờ rảnh hàng tuần
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Sinh viên sẽ thấy tiêu đề, hình thức học và địa điểm chi tiết
+                  </p>
                 </div>
-              </div>
 
-              {/* ĐỊA ĐIỂM CHI TIẾT */}
-              {locationType !== 'online' ? (
-                <div className="space-y-2">
-                  <Label className="text-lg font-semibold">Phòng học cụ thể</Label>
-                  <Input
-                    placeholder={locationType === 'cs1' ? 'VD: Phòng 304 - Tòa A4' : 'VD: Phòng 205 - Tòa H6'}
-                    value={customLocation}
-                    onChange={(e) => setCustomLocation(e.target.value)}
-                    className="text-lg"
-                  />
+                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-[#0B5FA5] hover:bg-[#094a85] font-bold text-lg px-6 py-6 shadow-lg">
+                      <Plus className="w-6 h-6 mr-3" />
+                      Thêm khung giờ
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="max-w-3xl bg-white">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-bold text-[#0B5FA5]">Thêm khung giờ rảnh</DialogTitle>
+                    </DialogHeader>
+
+                    {errorMsg && (
+                      <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                        <X className="w-5 h-5" />
+                        <span className="font-medium">{errorMsg}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-6 py-4">
+                      {/* TIÊU ĐỀ BUỔI HỌC */}
+                      <div className="space-y-2">
+                        <Label className="text-lg font-semibold text-gray-800">
+                          Tiêu đề buổi học <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          placeholder="VD: Ôn tập Cấu trúc dữ liệu, Hỗ trợ React Hook, Luyện Speaking..."
+                          value={sessionTitle}
+                          onChange={(e) => setSessionTitle(e.target.value)}
+                          className="mt-2 text-lg"
+                        />
+                      </div>
+
+                      {/* HÌNH THỨC HỌC */}
+                      <div>
+                        <Label className="text-lg font-semibold text-gray-800 mb-4 block">Hình thức học</Label>
+                        <div className="grid grid-cols-3 gap-4">
+                          {(['online', 'cs1', 'cs2'] as const).map((type) => (
+                            <label
+                              key={type}
+                              className={`cursor-pointer flex flex-col items-center p-6 rounded-2xl border-4 transition-all ${locationType === type
+                                  ? type === 'online'
+                                    ? 'border-[#0B5FA5] bg-blue-50'
+                                    : type === 'cs1'
+                                      ? 'border-green-600 bg-green-50'
+                                      : 'border-orange-600 bg-orange-50'
+                                  : 'border-gray-200 hover:border-gray-400'
+                                } shadow-md hover:shadow-lg`}
+                            >
+                              <input
+                                type="radio"
+                                name="locationType"
+                                value={type}
+                                checked={locationType === type}
+                                onChange={() => setLocationType(type)}
+                                className="sr-only"
+                              />
+                              {type === 'online' ? (
+                                <Video className="w-14 h-14 mb-3 text-[#0B5FA5]" />
+                              ) : (
+                                <MapPin className={`w-14 h-14 mb-3 ${type === 'cs1' ? 'text-green-600' : 'text-orange-600'}`} />
+                              )}
+                              <span className="font-bold text-lg">
+                                {type === 'online' ? 'Online' : type === 'cs1' ? 'CS1 (Q.10)' : 'CS2 (Thủ Đức)'}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* ĐỊA ĐIỂM CHI TIẾT */}
+                      {locationType !== 'online' ? (
+                        <div className="space-y-2">
+                          <Label className="text-lg font-semibold">Phòng học cụ thể</Label>
+                          <Input
+                            placeholder={locationType === 'cs1' ? 'VD: Phòng 304 - Tòa A4' : 'VD: Phòng 205 - Tòa H6'}
+                            value={customLocation}
+                            onChange={(e) => setCustomLocation(e.target.value)}
+                            className="text-lg"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label className="text-lg font-semibold">Link Google Meet / Zoom</Label>
+                          <Input
+                            placeholder="https://meet.google.com/abc-xyz-def"
+                            value={meetLink}
+                            onChange={(e) => setMeetLink(e.target.value)}
+                            className="text-lg"
+                          />
+                        </div>
+                      )}
+
+                      {/* THỨ & GIỜ */}
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                          <Label className="text-lg font-semibold">Thứ trong tuần</Label>
+                          <Select value={selectedDayOfWeek} onValueChange={setSelectedDayOfWeek}>
+                            <SelectTrigger className="h-14 text-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent
+                              className="bg-white border border-gray-300 shadow-xl rounded-lg min-w-[160px]"
+                              sideOffset={5}
+                            >
+                              {[1, 2, 3, 4, 5, 6, 0].map(d => (
+                                <SelectItem
+                                  key={d}
+                                  value={d.toString()}
+                                  className="text-lg py-4 px-4 hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
+                                >
+                                  <span className="font-medium">
+                                    {d === 0 ? 'Chủ Nhật' : `Thứ ${d + 1}`}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-lg font-semibold">Thời gian</Label>
+                          <div className="flex items-center gap-4">
+                            <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="text-lg" />
+                            <span className="text-2xl font-bold text-gray-600">→</span>
+                            <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="text-lg" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-4 pt-6 border-t">
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={() => {
+                            setIsAddOpen(false);
+                            setSessionTitle('');
+                            setLocationType('online');
+                            setMeetLink('');
+                            setCustomLocation('');
+                            setErrorMsg('');
+                          }}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          size="lg"
+                          onClick={handleAddAvailability}
+                          className="bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold px-10"
+                        >
+                          Lưu khung giờ
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+
+            {/* DANH SÁCH KHUNG GIỜ – ĐẸP NHẤT 2025 */}
+            <CardContent>
+              {availabilitySlots.length === 0 ? (
+                <div className="text-center py-32">
+                  <Calendar className="w-32 h-32 mx-auto mb-6 text-gray-200" />
+                  <p className="text-2xl text-gray-500 font-medium">Chưa có khung giờ rảnh nào</p>
+                  <p className="text-gray-400 mt-2">Bấm nút "Thêm khung giờ" để bắt đầu</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label className="text-lg font-semibold">Link Google Meet / Zoom</Label>
-                  <Input
-                    placeholder="https://meet.google.com/abc-xyz-def"
-                    value={meetLink}
-                    onChange={(e) => setMeetLink(e.target.value)}
-                    className="text-lg"
-                  />
+                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {availabilitySlots.map((slot) => {
+                    const isOnline = slot.location?.toLowerCase().includes('meet') ||
+                      slot.location?.toLowerCase().includes('google');
+
+                    return (
+                      <Card key={slot.id} className="shadow-xl hover:shadow-2xl transition-all">
+                        <CardContent className="pt-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <p className="text-xl font-bold text-[#0B5FA5]">
+                                {dayNames[slot.dayOfWeek]}
+                              </p>
+                              <p className="text-2xl font-bold text-gray-800 mt-2">
+                                {slot.startTime} - {slot.endTime}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteAvailability(slot.id)}
+                              className="text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </Button>
+                          </div>
+
+                          {/* TIÊU ĐỀ */}
+                          <div className="p-4 bg-gradient-to-r from-[#0B5FA5]/10 to-blue-50 rounded-xl border-l-4 border-l-[#0B5FA5]">
+                            <p className="text-sm font-medium text-gray-600">Tiêu đề buổi học:</p>
+                            <p className="font-bold text-[#0B5FA5] mt-1 text-lg">
+                              {slot.title || 'Tư vấn 1:1'}
+                            </p>
+                          </div>
+
+                          {/* ĐỊA ĐIỂM */}
+                          <div className="mt-4 flex items-center gap-3 text-lg">
+                            {isOnline ? (
+                              <>
+                                <Video className="w-6 h-6 text-blue-600" />
+                                <span className="font-medium text-blue-700">Online • {slot.location}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MapPin className="w-6 h-6 text-red-600" />
+                                <span className="font-medium text-red-700">Offline • {slot.location || 'Chưa xác định'}</span>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
-
-              {/* THỨ & GIỜ */}
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <Label className="text-lg font-semibold">Thứ trong tuần</Label>
-                  <Select value={selectedDayOfWeek} onValueChange={setSelectedDayOfWeek}>
-                    <SelectTrigger className="h-14 text-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1,2,3,4,5,6,0].map(d => (
-                        <SelectItem key={d} value={d.toString()} className="text-lg py-3">
-                          {d === 0 ? 'Chủ Nhật' : `Thứ ${d + 1}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-lg font-semibold">Thời gian</Label>
-                  <div className="flex items-center gap-4">
-                    <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="text-lg" />
-                    <span className="text-2xl font-bold text-gray-600">→</span>
-                    <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="text-lg" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => {
-                    setIsAddOpen(false);
-                    setSessionTitle('');
-                    setLocationType('online');
-                    setMeetLink('');
-                    setCustomLocation('');
-                    setErrorMsg('');
-                  }}
-                >
-                  Hủy
-                </Button>
-                <Button
-                  size="lg"
-                  onClick={handleAddAvailability}
-                  className="bg-[#0B5FA5] hover:bg-[#094a85] text-white font-bold px-10"
-                >
-                  Lưu khung giờ
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </CardHeader>
-
-    {/* DANH SÁCH KHUNG GIỜ – ĐẸP NHẤT 2025 */}
-    <CardContent>
-      {availabilitySlots.length === 0 ? (
-        <div className="text-center py-32">
-          <Calendar className="w-32 h-32 mx-auto mb-6 text-gray-200" />
-          <p className="text-2xl text-gray-500 font-medium">Chưa có khung giờ rảnh nào</p>
-          <p className="text-gray-400 mt-2">Bấm nút "Thêm khung giờ" để bắt đầu</p>
-        </div>
-      ) : (
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {availabilitySlots.map((slot) => {
-  const isOnline = slot.location?.toLowerCase().includes('meet') || 
-                   slot.location?.toLowerCase().includes('google');
-
-              return (
-    <Card key={slot.id} className="shadow-xl hover:shadow-2xl transition-all">
-      <CardContent className="pt-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-xl font-bold text-[#0B5FA5]">
-              {dayNames[slot.dayOfWeek]}
-            </p>
-            <p className="text-2xl font-bold text-gray-800 mt-2">
-              {slot.startTime} - {slot.endTime}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleDeleteAvailability(slot.id)}
-            className="text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* TIÊU ĐỀ */}
-        <div className="p-4 bg-gradient-to-r from-[#0B5FA5]/10 to-blue-50 rounded-xl border-l-4 border-l-[#0B5FA5]">
-          <p className="text-sm font-medium text-gray-600">Tiêu đề buổi học:</p>
-          <p className="font-bold text-[#0B5FA5] mt-1 text-lg">
-            {slot.title || 'Tư vấn 1:1'}
-          </p>
-        </div>
-
-        {/* ĐỊA ĐIỂM */}
-        <div className="mt-4 flex items-center gap-3 text-lg">
-          {isOnline ? (
-            <>
-              <Video className="w-6 h-6 text-blue-600" />
-              <span className="font-medium text-blue-700">Online • {slot.location}</span>
-            </>
-          ) : (
-            <>
-              <MapPin className="w-6 h-6 text-red-600" />
-              <span className="font-medium text-red-700">Offline • {slot.location || 'Chưa xác định'}</span>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-            })}
-        </div>
-      )}
-    </CardContent>
-  </Card>
-</TabsContent>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* TAB 3: REQUESTS (ĐÃ BỔ SUNG LOCATION & NOTE) */}
         <TabsContent value="requests">
@@ -639,43 +695,43 @@ export default function TutorDashboard() {
                     <Card key={req.id} className="border-l-8 border-l-yellow-500 bg-yellow-50/30">
                       <CardContent className="pt-6 flex flex-col md:flex-row justify-between gap-4">
                         <div className="space-y-2 flex-1">
-                           <div className="flex items-center gap-2">
-                             <Badge className="bg-yellow-500 hover:bg-yellow-600">PENDING</Badge>
-                             <span className="font-bold text-gray-700">
-                               {req.preferredDate ? format(parseISO(req.preferredDate), 'EEEE, dd/MM/yyyy', {locale: vi}) : 'N/A'}
-                             </span>
-                           </div>
-                           
-                           <div className="flex items-center gap-2 text-xl font-bold text-[#0B5FA5]">
-                              <User className="w-5 h-5"/> {req.student?.user?.name}
-                           </div>
-                           
-                           <div className="text-sm font-mono bg-white inline-block px-2 py-1 rounded border">
-                              {req.startTime} - {req.endTime}
-                           </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-yellow-500 hover:bg-yellow-600">PENDING</Badge>
+                            <span className="font-bold text-gray-700">
+                              {req.preferredDate ? format(parseISO(req.preferredDate), 'EEEE, dd/MM/yyyy', { locale: vi }) : 'N/A'}
+                            </span>
+                          </div>
 
-                           {/* BỔ SUNG THÔNG TIN */}
-                           <div className="mt-2 space-y-1 text-sm text-gray-700">
-                              <p className="flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-red-500"/> 
-                                <strong>Địa điểm:</strong> {req.location || 'Online (Google Meet)'}
+                          <div className="flex items-center gap-2 text-xl font-bold text-[#0B5FA5]">
+                            <User className="w-5 h-5" /> {req.student?.user?.name}
+                          </div>
+
+                          <div className="text-sm font-mono bg-white inline-block px-2 py-1 rounded border">
+                            {req.startTime} - {req.endTime}
+                          </div>
+
+                          {/* BỔ SUNG THÔNG TIN */}
+                          <div className="mt-2 space-y-1 text-sm text-gray-700">
+                            <p className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-red-500" />
+                              <strong>Địa điểm:</strong> {req.location || 'Online (Google Meet)'}
+                            </p>
+                            {req.description && (
+                              <p className="flex items-start gap-2 bg-white p-2 rounded border border-yellow-200">
+                                <FileText className="w-4 h-4 mt-0.5 text-gray-500" />
+                                <span className="italic">"{req.description}"</span>
                               </p>
-                              {req.description && (
-                                <p className="flex items-start gap-2 bg-white p-2 rounded border border-yellow-200">
-                                  <FileText className="w-4 h-4 mt-0.5 text-gray-500"/>
-                                  <span className="italic">"{req.description}"</span>
-                                </p>
-                              )}
-                           </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex flex-col gap-2 justify-center min-w-[120px]">
-                           <Button onClick={() => handleConfirmRequest(req.id)} className="bg-green-600 hover:bg-green-700 shadow-sm w-full">
-                             <Check className="w-4 h-4 mr-2"/> Duyệt
-                           </Button>
-                           <Button variant="outline" onClick={() => handleRejectRequest(req.id)} className="text-red-600 border-red-200 hover:bg-red-50 w-full">
-                             <X className="w-4 h-4 mr-2"/> Từ chối
-                           </Button>
+                          <Button onClick={() => handleConfirmRequest(req.id)} className="bg-green-600 hover:bg-green-700 shadow-sm w-full">
+                            <Check className="w-4 h-4 mr-2" /> Duyệt
+                          </Button>
+                          <Button variant="outline" onClick={() => handleRejectRequest(req.id)} className="text-red-600 border-red-200 hover:bg-red-50 w-full">
+                            <X className="w-4 h-4 mr-2" /> Từ chối
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
